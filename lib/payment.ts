@@ -4,17 +4,19 @@ import crypto from 'crypto'
  * Resolves the primary public URL of the application.
  */
 export function getAppBaseUrl(req?: Request): string {
+  // If request is provided, dynamically use the active browsing domain
+  if (req) {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+    const proto = req.headers.get('x-forwarded-proto') || 'https'
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return `${proto}://${host}`
+    }
+  }
+
   if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')) {
     return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL.replace(/\/$/, '')}`
-  }
-  if (req) {
-    const host = req.headers.get('host')
-    const proto = req.headers.get('x-forwarded-proto') || 'https'
-    if (host) return `${proto}://${host}`
-  }
+
   return 'https://purple-haze-restro.vercel.app'
 }
 
