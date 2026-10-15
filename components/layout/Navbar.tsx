@@ -178,7 +178,7 @@ export function Navbar() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-11 h-11 rounded-full overflow-hidden bg-white shadow-md group-hover:scale-105 transition-transform duration-300 border border-purple-200 dark:border-purple-800/80 p-0.5 shrink-0 flex items-center justify-center">
+            <div className="hidden min-[400px]:flex w-11 h-11 rounded-full overflow-hidden bg-white shadow-md group-hover:scale-105 transition-transform duration-300 border border-purple-200 dark:border-purple-800/80 p-0.5 shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/purple-haze-logo.png"
