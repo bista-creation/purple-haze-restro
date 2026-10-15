@@ -132,27 +132,31 @@ export async function POST(req: Request) {
       // Also persist backup copy
       saveOrderToFile(order)
 
-      // Dispatch order confirmation email asynchronously
+      // Dispatch order confirmation email (awaited)
       if (customer?.email) {
-        sendOrderPlacedEmail({
-          orderNumber,
-          customerEmail: customer.email,
-          customerName: customer.name || 'Valued Diner',
-          orderType: orderType || 'DELIVERY',
-          items: items.map((i: any) => ({
-            dishName: i.dishName || 'Dish',
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice || i.unitPrice * i.quantity,
-          })),
-          pricing: {
-            subtotal: pricing?.subtotal || 0,
-            deliveryFee: pricing?.deliveryFee || 0,
-            discount: pricing?.discount || 0,
-            total: pricing?.total || 0,
-          },
-          paymentMethod: paymentMethod || 'CASH_ON_DELIVERY',
-        }).catch((err) => console.error('[Order Mail Error]:', err))
+        try {
+          await sendOrderPlacedEmail({
+            orderNumber,
+            customerEmail: customer.email,
+            customerName: customer.name || 'Valued Diner',
+            orderType: orderType || 'DELIVERY',
+            items: items.map((i: any) => ({
+              dishName: i.dishName || 'Dish',
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              totalPrice: i.totalPrice || i.unitPrice * i.quantity,
+            })),
+            pricing: {
+              subtotal: pricing?.subtotal || 0,
+              deliveryFee: pricing?.deliveryFee || 0,
+              discount: pricing?.discount || 0,
+              total: pricing?.total || 0,
+            },
+            paymentMethod: paymentMethod || 'CASH_ON_DELIVERY',
+          })
+        } catch (err) {
+          console.error('[Order Mail Error]:', err)
+        }
       }
 
       return NextResponse.json({ success: true, data: order }, { status: 201 })
@@ -191,25 +195,29 @@ export async function POST(req: Request) {
       saveOrderToFile(fallbackOrder)
 
       if (customer?.email) {
-        sendOrderPlacedEmail({
-          orderNumber,
-          customerEmail: customer.email,
-          customerName: customer.name || 'Valued Diner',
-          orderType: orderType || 'DELIVERY',
-          items: items.map((i: any) => ({
-            dishName: i.dishName || 'Dish',
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice || i.unitPrice * i.quantity,
-          })),
-          pricing: {
-            subtotal: pricing?.subtotal || 0,
-            deliveryFee: pricing?.deliveryFee || 0,
-            discount: pricing?.discount || 0,
-            total: pricing?.total || 0,
-          },
-          paymentMethod: paymentMethod || 'CASH_ON_DELIVERY',
-        }).catch((err) => console.error('[Order Mail Error]:', err))
+        try {
+          await sendOrderPlacedEmail({
+            orderNumber,
+            customerEmail: customer.email,
+            customerName: customer.name || 'Valued Diner',
+            orderType: orderType || 'DELIVERY',
+            items: items.map((i: any) => ({
+              dishName: i.dishName || 'Dish',
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              totalPrice: i.totalPrice || i.unitPrice * i.quantity,
+            })),
+            pricing: {
+              subtotal: pricing?.subtotal || 0,
+              deliveryFee: pricing?.deliveryFee || 0,
+              discount: pricing?.discount || 0,
+              total: pricing?.total || 0,
+            },
+            paymentMethod: paymentMethod || 'CASH_ON_DELIVERY',
+          })
+        } catch (err) {
+          console.error('[Order Mail Error]:', err)
+        }
       }
 
       return NextResponse.json({ success: true, data: fallbackOrder }, { status: 200 })

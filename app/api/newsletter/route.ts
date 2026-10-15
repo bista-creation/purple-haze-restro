@@ -95,11 +95,14 @@ export async function POST(req: Request) {
     })
 
     // 2. Dispatch Welcome Email
+    let emailStatus: any = { dispatched: false }
     if (isNew) {
       try {
-        await sendNewsletterWelcomeEmail(email)
+        const mailResult = await sendNewsletterWelcomeEmail(email)
+        emailStatus = { dispatched: true, ...mailResult }
       } catch (mailErr) {
         console.error('[Newsletter Mail Error]:', mailErr)
+        emailStatus = { dispatched: false, error: String(mailErr) }
       }
     }
 
@@ -109,6 +112,7 @@ export async function POST(req: Request) {
         message: isNew
           ? 'Welcome to the Purple Haze VIP Club! Your 10% promo voucher has been sent to your inbox.'
           : "You're already a VIP member! Use code VIPWELCOME10 for 10% off your next order.",
+        emailStatus,
       },
       { status: 200 }
     )

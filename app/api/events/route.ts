@@ -25,18 +25,22 @@ export async function POST(req: Request) {
     const { name, email, phone, eventType, eventDate, guests, venue, message } = validatedData.data
     const referenceId = 'PH-EVT-' + Math.floor(1000 + Math.random() * 9000)
 
-    // Dispatch email notification asynchronously
-    sendEventBookingNotification({
-      name,
-      email,
-      phone,
-      eventType,
-      eventDate,
-      guests: Number(guests),
-      venue: venue || 'Grand Banquet Hall',
-      message,
-      referenceId,
-    }).catch((err) => console.error('[Event Mail Error]:', err))
+    // Dispatch email notification to guest and admin (awaited)
+    try {
+      await sendEventBookingNotification({
+        name,
+        email,
+        phone,
+        eventType,
+        eventDate,
+        guests: Number(guests),
+        venue: venue || 'Grand Banquet Hall',
+        message,
+        referenceId,
+      })
+    } catch (err) {
+      console.error('[Event Mail Error]:', err)
+    }
 
     try {
       const booking = await prisma.eventBooking.create({

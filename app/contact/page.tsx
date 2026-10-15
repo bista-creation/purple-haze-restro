@@ -35,20 +35,27 @@ export default function ContactPage() {
     setSubmitting(true)
 
     try {
-      await fetch('/api/contact', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setSubmitted(true)
+        toast.success('Your message has been sent!', {
+          description: `Our guest relations team has received your inquiry and will respond to ${formData.email}.`,
+        })
+      } else {
+        toast.error(data.error || 'Failed to send message. Please try again.')
+      }
     } catch (err) {
       console.warn('Contact API sync deferred', err)
+      toast.error('Network error. Please try again shortly.')
+    } finally {
+      setSubmitting(false)
     }
-
-    setSubmitting(false)
-    setSubmitted(true)
-    toast.success('Your message has been sent!', {
-      description: 'Our guest relations team will respond promptly.',
-    })
   }
 
   return (

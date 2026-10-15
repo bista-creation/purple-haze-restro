@@ -22,17 +22,21 @@ export async function POST(req: Request) {
     const { name, email, phone, date, time, guests, tableArea, specialRequests } = validatedData.data
     const bookingCode = 'PHR-' + Math.floor(1000 + Math.random() * 9000)
 
-    // Dispatch email asynchronously
-    sendReservationConfirmationEmail({
-      name,
-      email,
-      phone,
-      date,
-      time,
-      guests: Number(guests),
-      tableArea: tableArea || 'Open Garden',
-      code: bookingCode,
-    }).catch((err) => console.error('[Reservation Mail Error]:', err))
+    // Dispatch confirmation email to guest and admin (awaited)
+    try {
+      await sendReservationConfirmationEmail({
+        name,
+        email,
+        phone,
+        date,
+        time,
+        guests: Number(guests),
+        tableArea: tableArea || 'Open Garden',
+        code: bookingCode,
+      })
+    } catch (err) {
+      console.error('[Reservation Mail Error]:', err)
+    }
 
     try {
       const reservation = await prisma.reservation.create({

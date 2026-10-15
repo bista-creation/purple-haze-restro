@@ -3,9 +3,41 @@ import { Resend } from 'resend'
 const resendApiKey = process.env.RESEND_API_KEY
 const resend = resendApiKey ? new Resend(resendApiKey) : null
 
-const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || 'Purple Haze Restro <onboarding@resend.dev>'
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@purplehaze.com'
+/**
+ * Returns a sanitized 'From' email address.
+ * Resend strictly forbids sending from public webmail domains like @gmail.com or @yahoo.com
+ * unless sending through a verified custom domain. If an unverified public domain is detected,
+ * we safely fallback to the official Resend testing domain 'onboarding@resend.dev'.
+ */
+export function getFromEmail(): string {
+  const envFrom = process.env.RESEND_FROM_EMAIL?.trim()
+  if (!envFrom) {
+    return 'Purple Haze Restro <onboarding@resend.dev>'
+  }
+
+  // Check for public domains (@gmail.com, @yahoo.com, etc.)
+  if (/@(gmail|yahoo|hotmail|outlook|live|icloud|aol)\.com/i.test(envFrom)) {
+    console.warn(
+      `[Resend Config Notice] "${envFrom}" uses a public email domain which is rejected by Resend. Falling back to "Purple Haze Restro <onboarding@resend.dev>".`
+    )
+    return 'Purple Haze Restro <onboarding@resend.dev>'
+  }
+
+  return envFrom
+}
+
+/**
+ * Returns the restaurant admin notification address.
+ * Defaults to the verified account owner email 'bistacreation@gmail.com'
+ * to ensure Sandbox testing delivers directly to the real inbox.
+ */
+export function getAdminEmail(): string {
+  const envAdmin = process.env.ADMIN_EMAIL?.trim()
+  if (envAdmin && !envAdmin.includes('admin@purplehaze.com')) {
+    return envAdmin
+  }
+  return 'bistacreation@gmail.com'
+}
 
 /**
  * Reusable Luxury HTML Email Wrapper for Purple Haze Restro & Garden
@@ -57,9 +89,54 @@ function wrapEmailTemplate(title: string, bodyContent: string): string {
 }
 
 /**
- * 1. Send VIP Newsletter Welcome Email
+ * Base email dispatcher with complete Resend error diagnostics
  */
-export async function sendNewsletterWelcomeEmail(email: string) {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string
+  subject: string
+  html: string
+}): Promise<{ success: boolean; id?: string; error?: any }> {
+  if (!resend) {
+    console.warn(`[Email Notice] RESEND_API_KEY is not set. Simulated email to: ${to} | Subject: "${subject}"`)
+    return { success: true, id: 'simulated_' + Date.now() }
+  }
+
+  const from = getFromEmail()
+
+  try {
+    const response = await resend.emails.send({
+      from,
+      to,
+      subject,
+      html,
+    })
+
+    // Check for Resend error response object
+    if (response.error) {
+      console.error('[Resend Dispatch Error]:', JSON.stringify(response.error, null, 2))
+      return { success: false, error: response.error }
+    }
+
+    console.log(`[Resend Success]: Delivered "${subject}" to ${to} (Message ID: ${response.data?.id})`)
+    return { success: true, id: response.data?.id }
+  } catch (error: any) {
+    console.error('[Resend Network Exception]:', error)
+    return { success: false, error: error?.message || error }
+  }
+}
+
+/**
+ * 1. Send VIP Newsletter Welcome Email
+ * Handles Resend Sandbox restriction: if delivering to a 3rd party email fails
+ * because the domain is unverified, an alert copy is forwarded to the admin inbox
+ * so the lead is never lost.
+ */
+export async function sendNewsletterWelcomeEmail(subscriberEmail: string) {
+  const adminEmail = getAdminEmail()
   const subject = 'Welcome to the Purple Haze VIP Club! 🌸 (Your 10% Voucher Inside)'
   const html = wrapEmailTemplate(
     subject,
@@ -89,11 +166,43 @@ export async function sendNewsletterWelcomeEmail(email: string) {
     `
   )
 
-  return sendEmail({ to: email, subject, html })
+  const directResult = await sendEmail({ to: subscriberEmail, subject, html })
+
+  // If direct send fails (e.g. Resend sandbox restriction for external recipients)
+  if (!directResult.success) {
+    console.warn(`[Newsletter] Sandbox mode prevented sending directly to ${subscriberEmail}. Forwarding signup alert to Admin (${adminEmail}).`)
+    
+    const adminSubject = `[VIP Newsletter Signup] New Subscriber: ${subscriberEmail}`
+    const adminHtml = wrapEmailTemplate(
+      adminSubject,
+      `
+        <h2 style="color: #4c1d95; font-size: 20px; margin-top: 0;">New VIP Club Subscriber 🎉</h2>
+        <p>A new visitor subscribed to the <strong>Purple Haze VIP Club</strong> via the website footer.</p>
+        
+        <div class="highlight-box">
+          <p style="margin: 0; font-size: 12px; color: #6b21a8; font-weight: 600;">NEW SUBSCRIBER:</p>
+          <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: 700; color: #1e293b;"><a href="mailto:${subscriberEmail}">${subscriberEmail}</a></p>
+          <p style="margin: 8px 0 0 0; font-size: 12px; color: #059669; font-weight: 600;">Promo Voucher Assigned: VIPWELCOME10 (10% OFF)</p>
+        </div>
+
+        <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 12px; color: #92400e; line-height: 1.5;">
+          <strong>Resend Sandbox Delivery Notice:</strong><br/>
+          Because your Resend account is currently in test mode using <code>onboarding@resend.dev</code>, Resend only delivers outbound emails to your verified account email (<code>${adminEmail}</code>).
+          <br/><br/>
+          To automatically deliver emails directly to any customer's personal email (@gmail, @yahoo, etc.), add and verify your custom domain at <a href="https://resend.com/domains" target="_blank" style="color: #b45309; font-weight: 700;">resend.com/domains</a>.
+        </div>
+      `
+    )
+
+    return sendEmail({ to: adminEmail, subject: adminSubject, html: adminHtml })
+  }
+
+  return directResult
 }
 
 /**
  * 2. Send Table Reservation Confirmation Email
+ * Delivers to the guest and dispatches a copy to the admin.
  */
 export async function sendReservationConfirmationEmail(params: {
   name: string
@@ -106,6 +215,7 @@ export async function sendReservationConfirmationEmail(params: {
   code: string
 }) {
   const { name, email, phone, date, time, guests, tableArea, code } = params
+  const adminEmail = getAdminEmail()
   const subject = `Table Confirmed: ${code} - Purple Haze Restro & Garden`
 
   const areaNames: Record<string, string> = {
@@ -164,11 +274,19 @@ export async function sendReservationConfirmationEmail(params: {
     `
   )
 
-  return sendEmail({ to: email, subject, html })
+  // Send to guest (if allowed by sandbox or verified domain)
+  const guestResult = await sendEmail({ to: email, subject, html })
+
+  // Always send alert to admin
+  const adminSubject = `[New Table Booking] ${code} (${guests} Guests) - ${name}`
+  const adminResult = await sendEmail({ to: adminEmail, subject: adminSubject, html })
+
+  return { guestResult, adminResult }
 }
 
 /**
  * 3. Send Contact Inquiry Notification to Admin
+ * Delivered directly to bistacreation@gmail.com
  */
 export async function sendContactInquiryNotification(params: {
   name: string
@@ -178,7 +296,8 @@ export async function sendContactInquiryNotification(params: {
   message: string
 }) {
   const { name, email, phone, subject: inqSubject, message } = params
-  const subject = `[New Contact Inquiry] ${inqSubject} - from ${name}`
+  const adminEmail = getAdminEmail()
+  const subject = `[Guest Inquiry] ${inqSubject} - from ${name}`
 
   const html = wrapEmailTemplate(
     subject,
@@ -210,12 +329,12 @@ export async function sendContactInquiryNotification(params: {
       </div>
 
       <p style="font-size: 12px; color: #64748b;">
-        You can reply directly to this guest at <a href="mailto:${email}">${email}</a>.
+        You can reply directly to this guest by clicking <a href="mailto:${email}">${email}</a>.
       </p>
     `
   )
 
-  return sendEmail({ to: ADMIN_EMAIL, subject, html })
+  return sendEmail({ to: adminEmail, subject, html })
 }
 
 /**
@@ -233,6 +352,7 @@ export async function sendEventBookingNotification(params: {
   referenceId: string
 }) {
   const { name, email, phone, eventType, eventDate, guests, venue, message, referenceId } = params
+  const adminEmail = getAdminEmail()
   const subject = `Event Booking Inquiry: ${referenceId} (${venue}) - ${name}`
 
   const html = wrapEmailTemplate(
@@ -280,15 +400,14 @@ export async function sendEventBookingNotification(params: {
     `
   )
 
-  // Send to guest and copy admin
-  return Promise.all([
-    sendEmail({ to: email, subject, html }),
-    sendEmail({ to: ADMIN_EMAIL, subject: `[New Banquet Inquiry] ${subject}`, html }),
-  ])
+  const guestResult = await sendEmail({ to: email, subject, html })
+  const adminResult = await sendEmail({ to: adminEmail, subject: `[New Banquet Inquiry] ${subject}`, html })
+
+  return { guestResult, adminResult }
 }
 
 /**
- * 5. Send Order Placed Email to Customer
+ * 5. Send Order Placed Email to Customer & Kitchen Alert to Admin
  */
 export async function sendOrderPlacedEmail(params: {
   orderNumber: string
@@ -300,6 +419,7 @@ export async function sendOrderPlacedEmail(params: {
   paymentMethod: string
 }) {
   const { orderNumber, customerEmail, customerName, orderType, items, pricing, paymentMethod } = params
+  const adminEmail = getAdminEmail()
   const subject = `Order Confirmed #${orderNumber} - Purple Haze Restro & Garden`
 
   const itemsRows = items
@@ -356,39 +476,60 @@ export async function sendOrderPlacedEmail(params: {
     `
   )
 
-  return sendEmail({ to: customerEmail, subject, html })
+  const customerResult = await sendEmail({ to: customerEmail, subject, html })
+  // Always alert kitchen/admin
+  const adminResult = await sendEmail({
+    to: adminEmail,
+    subject: `[Kitchen Alert] New Order #${orderNumber} (Rs. ${pricing.total})`,
+    html,
+  })
+
+  return { customerResult, adminResult }
 }
 
 /**
- * Base email dispatcher
- * Gracefully falls back to structured console delivery if RESEND_API_KEY is not set
+ * Diagnostic Email Tester - Sends a test verification email to admin
  */
-async function sendEmail({
-  to,
-  subject,
-  html,
-}: {
-  to: string
-  subject: string
-  html: string
-}) {
-  if (!resend) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[Email Simulation] To: ${to} | Subject: "${subject}"`)
-    }
-    return { success: true, simulated: true }
-  }
+export async function testEmailConnection(targetEmail?: string) {
+  const recipient = targetEmail || getAdminEmail()
+  const from = getFromEmail()
+  const subject = 'Purple Haze Restro & Garden - Email Delivery Test 🚀'
+  const html = wrapEmailTemplate(
+    subject,
+    `
+      <h2 style="color: #4c1d95; font-size: 20px; margin-top: 0;">Email System Operational! 🥂</h2>
+      <p>Congratulations! Your Resend email service integration with <strong>Purple Haze Restro & Garden</strong> is functioning properly.</p>
+      
+      <table class="details-table">
+        <tr>
+          <td class="label">Dispatched From:</td>
+          <td class="value">${from}</td>
+        </tr>
+        <tr>
+          <td class="label">Delivered To:</td>
+          <td class="value">${recipient}</td>
+        </tr>
+        <tr>
+          <td class="label">Server Timestamp:</td>
+          <td class="value">${new Date().toISOString()}</td>
+        </tr>
+        <tr>
+          <td class="label">API Key Active:</td>
+          <td class="value" style="color: #059669;">${resendApiKey ? 'Yes (' + resendApiKey.substring(0, 7) + '...)' : 'No (Simulated)'}</td>
+        </tr>
+      </table>
 
-  try {
-    const data = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject,
-      html,
-    })
-    return { success: true, id: data.data?.id }
-  } catch (error) {
-    console.error('[Email Dispatch Error]:', error)
-    return { success: false, error }
-  }
+      <div class="highlight-box">
+        <p style="margin: 0; font-size: 12px; color: #6b21a8; font-weight: 600;">ACTIVE FEATURES:</p>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #1e293b;">
+          ✓ VIP Newsletter Subscriptions with VIPWELCOME10 Promo<br/>
+          ✓ Guest Contact Inquiries directly to Admin<br/>
+          ✓ Online Table Reservations & Reference Numbers<br/>
+          ✓ Banquet & Event Bookings
+        </p>
+      </div>
+    `
+  )
+
+  return sendEmail({ to: recipient, subject, html })
 }
