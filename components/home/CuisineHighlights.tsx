@@ -41,7 +41,7 @@ export function CuisineHighlights() {
               {/* Image Container with Zoom Effect */}
               <div className="relative h-56 w-full overflow-hidden bg-muted">
                 <Image
-                  src={cuisine.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800'}
+                  src={cuisine.image || '/images/my-cuisine-photo.jpg'}
                   alt={cuisine.name}
                   fill
                   className="object-cover group-hover:scale-110 transition-transform duration-500"

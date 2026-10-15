@@ -169,12 +169,12 @@ export function Navbar() {
 
       {/* Main Header */}
       <header
-        className={`sticky top-0 z-40 w-full transition-all duration-300 ${
-          scrolled
-            ? 'bg-background/95 backdrop-blur-md shadow-md border-b border-border/60 py-2.5'
-            : 'bg-background/80 backdrop-blur-sm border-b border-border/30 py-3.5'
-        }`}
-      >
+  className={`sticky top-0 z-40 w-full border-b transition-all duration-300 ${
+    scrolled
+      ? 'bg-white dark:bg-purple-950 shadow-md border-gray-200 dark:border-purple-800 py-2.5'
+      : 'bg-white dark:bg-purple-950 border-gray-200 dark:border-purple-800 py-3.5'
+  }`}
+>
         <div className="container mx-auto px-4 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">

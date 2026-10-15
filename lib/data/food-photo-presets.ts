@@ -11,7 +11,7 @@ export const FOOD_PHOTO_PRESETS: FoodPhotoPreset[] = [
     id: 'np-thali',
     title: 'Thakali Thali Set',
     category: 'nepali',
-    url: 'https://images.unsplash.com/photo-1625398407795-856638847727?q=80&w=800&auto=format&fit=crop',
+    url: '/images/my-cuisine-photo.jpg',
   },
   {
     id: 'np-momo-steam',
