@@ -119,8 +119,13 @@ export function AdminSidebar({
         {/* Brand Header */}
         <div className="p-5 border-b border-purple-900/40">
           <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-600 to-purple-800 flex items-center justify-center text-gold-400 shadow-md border border-gold-400/30">
-              <UtensilsCrossed className="w-5 h-5 text-gold-300" />
+            <div className="w-11 h-11 rounded-full overflow-hidden bg-white shadow-md border border-amber-400/40 p-0.5 shrink-0 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/purple-haze-logo.png"
+                alt="Purple Haze Restro & Garden Logo"
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
             <div>
               <span className="font-serif text-lg font-bold tracking-tight text-white block">

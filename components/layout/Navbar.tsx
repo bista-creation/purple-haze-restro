@@ -178,15 +178,20 @@ export function Navbar() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-700 via-purple-800 to-purple-950 flex items-center justify-center text-gold-400 shadow-md group-hover:scale-105 transition-transform duration-300 border border-gold-400/30">
-              <UtensilsCrossed className="w-5 h-5 text-gold-300" />
+            <div className="w-11 h-11 rounded-full overflow-hidden bg-white shadow-md group-hover:scale-105 transition-transform duration-300 border border-purple-200 dark:border-purple-800/80 p-0.5 shrink-0 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/purple-haze-logo.png"
+                alt="Purple Haze Restro & Garden Logo"
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
             <div className="flex flex-col">
               <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
                 Purple Haze
               </span>
               <span className="text-[10px] tracking-widest uppercase font-semibold text-amber-700 dark:text-gold-400 -mt-1">
-                Restro & Garden • Biratnagar
+                Restro & Garden
               </span>
             </div>
           </Link>

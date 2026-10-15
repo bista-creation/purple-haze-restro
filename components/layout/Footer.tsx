@@ -39,8 +39,13 @@ export function Footer() {
           {/* Col 1: Brand & Story */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary-600 via-primary-700 to-purple-900 flex items-center justify-center text-gold-400 shadow-lg border border-gold-400/30">
-                <UtensilsCrossed className="w-6 h-6 text-gold-300" />
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-white shadow-lg border border-purple-400/40 p-0.5 shrink-0 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/purple-haze-logo.png"
+                  alt="Purple Haze Restro & Garden Logo"
+                  className="w-full h-full object-contain rounded-full"
+                />
               </div>
               <div className="flex flex-col">
                 <span className="font-serif text-2xl font-bold tracking-tight text-white">
