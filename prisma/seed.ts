@@ -10,7 +10,12 @@ import {
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
-const prisma = new PrismaClient()
+const dbUrl =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL
+
+const prisma = new PrismaClient(dbUrl ? { datasourceUrl: dbUrl } : {})
 
 async function main() {
   console.log('🌱 Starting seed...')
