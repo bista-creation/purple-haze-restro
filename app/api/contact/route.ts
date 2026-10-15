@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { ContactSchema } from '@/lib/validations'
+import { sendContactInquiryNotification } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,11 @@ export async function POST(req: Request) {
     }
 
     const { name, email, phone, subject, message } = validatedData.data
+
+    // Dispatch email notification asynchronously
+    sendContactInquiryNotification({ name, email, phone, subject, message }).catch((err) =>
+      console.error('[Contact Mail Error]:', err)
+    )
 
     try {
       const contactRecord = await prisma.contactMessage.create({

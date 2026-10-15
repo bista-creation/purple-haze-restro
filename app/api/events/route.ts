@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { EventBookingSchema } from '@/lib/validations'
+import { sendEventBookingNotification } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,20 @@ export async function POST(req: Request) {
     }
 
     const { name, email, phone, eventType, eventDate, guests, venue, message } = validatedData.data
+    const referenceId = 'PH-EVT-' + Math.floor(1000 + Math.random() * 9000)
+
+    // Dispatch email notification asynchronously
+    sendEventBookingNotification({
+      name,
+      email,
+      phone,
+      eventType,
+      eventDate,
+      guests: Number(guests),
+      venue: venue || 'Grand Banquet Hall',
+      message,
+      referenceId,
+    }).catch((err) => console.error('[Event Mail Error]:', err))
 
     try {
       const booking = await prisma.eventBooking.create({
@@ -37,7 +52,7 @@ export async function POST(req: Request) {
           status: 'PENDING',
         },
       })
-      return NextResponse.json({ success: true, data: booking }, { status: 201 })
+      return NextResponse.json({ success: true, data: { ...booking, referenceId } }, { status: 201 })
     } catch (dbError) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[Events] Database write bypassed (fallback mode):', dbError)

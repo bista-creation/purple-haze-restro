@@ -13,21 +13,45 @@ import {
   ArrowRight,
   UtensilsCrossed,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react'
 import { RESTAURANT_INFO } from '@/lib/data/restaurant-data'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 
 export function Footer() {
   const [email, setEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email && email.includes('@')) {
-      setSubscribed(true)
-      setEmail('')
-      setTimeout(() => setSubscribed(false), 5000)
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address.')
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setSubscribed(true)
+        setEmail('')
+        toast.success(data.message || 'Subscribed successfully!')
+      } else {
+        toast.error(data.error || 'Failed to subscribe. Please try again.')
+      }
+    } catch {
+      toast.error('Network error. Please try again shortly.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -221,9 +245,17 @@ export function Footer() {
             />
             <Button
               type="submit"
-              className="bg-gold-500 hover:bg-gold-600 text-charcoal-950 font-semibold px-4 h-10 rounded-xl text-xs shrink-0 shadow-md"
+              disabled={submitting}
+              className="bg-gold-500 hover:bg-gold-600 text-charcoal-950 font-semibold px-4 h-10 rounded-xl text-xs shrink-0 shadow-md flex items-center gap-1.5 transition-all"
             >
-              Subscribe
+              {submitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Joining...</span>
+                </>
+              ) : (
+                <span>Subscribe</span>
+              )}
             </Button>
           </form>
           {subscribed && (

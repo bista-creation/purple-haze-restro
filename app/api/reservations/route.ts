@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { ReservationSchema } from '@/lib/validations'
+import { sendReservationConfirmationEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,19 @@ export async function POST(req: Request) {
     }
 
     const { name, email, phone, date, time, guests, tableArea, specialRequests } = validatedData.data
+    const bookingCode = 'PHR-' + Math.floor(1000 + Math.random() * 9000)
+
+    // Dispatch email asynchronously
+    sendReservationConfirmationEmail({
+      name,
+      email,
+      phone,
+      date,
+      time,
+      guests: Number(guests),
+      tableArea: tableArea || 'Open Garden',
+      code: bookingCode,
+    }).catch((err) => console.error('[Reservation Mail Error]:', err))
 
     try {
       const reservation = await prisma.reservation.create({
@@ -34,7 +48,7 @@ export async function POST(req: Request) {
           status: 'PENDING',
         },
       })
-      return NextResponse.json({ success: true, data: reservation }, { status: 201 })
+      return NextResponse.json({ success: true, data: { ...reservation, code: bookingCode } }, { status: 201 })
     } catch (dbError) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[Reservations] Database write bypassed (fallback mode):', dbError)
