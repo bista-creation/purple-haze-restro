@@ -94,24 +94,20 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     })
 
-    // 2. Dispatch Welcome Email
+    // 2. Dispatch Welcome / Voucher Email (always send so the subscriber receives the VIP code)
     let emailStatus: any = { dispatched: false }
-    if (isNew) {
-      try {
-        const mailResult = await sendNewsletterWelcomeEmail(email)
-        emailStatus = { dispatched: true, ...mailResult }
-      } catch (mailErr) {
-        console.error('[Newsletter Mail Error]:', mailErr)
-        emailStatus = { dispatched: false, error: String(mailErr) }
-      }
+    try {
+      const mailResult = await sendNewsletterWelcomeEmail(email)
+      emailStatus = { dispatched: true, ...mailResult }
+    } catch (mailErr) {
+      console.error('[Newsletter Mail Error]:', mailErr)
+      emailStatus = { dispatched: false, error: String(mailErr) }
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: isNew
-          ? 'Welcome to the Purple Haze VIP Club! Your 10% promo voucher has been sent to your inbox.'
-          : "You're already a VIP member! Use code VIPWELCOME10 for 10% off your next order.",
+        message: 'Welcome to the Purple Haze VIP Club! Your 10% promo voucher has been sent to your inbox.',
         emailStatus,
       },
       { status: 200 }

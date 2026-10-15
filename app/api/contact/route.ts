@@ -11,18 +11,28 @@ export async function POST(req: Request) {
     const validatedData = ContactSchema.safeParse(body)
 
     if (!validatedData.success) {
+      const fieldErrors = validatedData.error.flatten().fieldErrors
+      const firstError =
+        Object.values(fieldErrors).flat()[0] || 'Please provide all required fields.'
       return NextResponse.json(
-        { success: false, errors: validatedData.error.flatten().fieldErrors },
+        { success: false, error: firstError, errors: fieldErrors },
         { status: 400 }
       )
     }
 
     const { name, email, phone, subject, message } = validatedData.data
+    const inquirySubject = subject || 'General Inquiry'
 
     // Dispatch email notification to admin (awaited so serverless execution context does not terminate early)
     let emailStatus: any = { dispatched: false }
     try {
-      const emailResult = await sendContactInquiryNotification({ name, email, phone, subject, message })
+      const emailResult = await sendContactInquiryNotification({
+        name,
+        email,
+        phone,
+        subject: inquirySubject,
+        message,
+      })
       emailStatus = { dispatched: true, ...emailResult }
     } catch (mailErr) {
       console.error('[Contact Mail Error]:', mailErr)

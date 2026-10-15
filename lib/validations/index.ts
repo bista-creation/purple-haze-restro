@@ -104,11 +104,11 @@ export const ReservationSchema = z.object({
 })
 
 export const ContactSchema = z.object({
-  name: z.string().min(2, 'Name is required'),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().optional(),
-  subject: z.string().min(3, 'Subject is required'),
-  message: z.string().min(10, 'Message must be at least 10 characters'),
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Valid email address is required'),
+  phone: z.string().optional().nullable(),
+  subject: z.string().optional().nullable().default('General Inquiry'),
+  message: z.string().min(1, 'Please enter a message'),
 })
 
 export const ReviewSchema = z.object({
