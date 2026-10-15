@@ -62,6 +62,22 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      const err = sp.get('error')
+      if (err) {
+        if (err.includes('esewa')) {
+          setErrorMsg('eSewa payment was cancelled or not completed. You can try again or choose Cash on Delivery.')
+        } else if (err.includes('khalti')) {
+          setErrorMsg('Khalti payment was cancelled or not completed. You can try again or choose Cash on Delivery.')
+        } else {
+          setErrorMsg('Online payment was not completed. Please try again or select Cash on Delivery.')
+        }
+      }
+    }
+  }, [])
+
   const subtotal = getSubtotal()
   const discount = getDiscountAmount()
   const total = getTotal()
@@ -131,7 +147,7 @@ export default function CheckoutPage() {
       },
       payment: {
         method: formData.paymentMethod,
-        status: formData.paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PAID (SANDBOX)',
+        status: formData.paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PENDING (AWAITING GATEWAY)',
         amount: total,
       },
       status: 'PLACED',
@@ -145,6 +161,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderNumber,
           customer: { name: formData.name, phone: formData.phone, email: formData.email },
           orderType,
           items: orderSnapshot.items,
@@ -168,7 +185,78 @@ export default function CheckoutPage() {
       localStorage.setItem(`order_${orderNumber}`, JSON.stringify(orderSnapshot))
     }
 
-    // Clear cart and route to confirmation
+    // 1. Handle eSewa ePay v2 gateway redirect
+    if (formData.paymentMethod === 'ESEWA') {
+      toast.info('Connecting to eSewa payment gateway...')
+      try {
+        const esewaRes = await fetch('/api/payment/esewa/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderNumber,
+            totalAmount: total,
+            deliveryFee: orderType === 'DELIVERY' ? deliveryFee : 0,
+          }),
+        })
+        const esewaData = await esewaRes.json()
+
+        if (esewaData.success && esewaData.formUrl && esewaData.fields) {
+          const form = document.createElement('form')
+          form.method = 'POST'
+          form.action = esewaData.formUrl
+          Object.entries(esewaData.fields).forEach(([key, val]) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = key
+            input.value = String(val)
+            form.appendChild(input)
+          })
+          document.body.appendChild(form)
+          form.submit()
+          return
+        }
+        throw new Error(esewaData.error || 'Failed to initialize eSewa payment')
+      } catch (esewaErr: any) {
+        setSubmitting(false)
+        setErrorMsg(esewaErr.message || 'Unable to connect to eSewa. Please choose another payment method.')
+        toast.error('eSewa Error: ' + (esewaErr.message || 'Connection failed'))
+        return
+      }
+    }
+
+    // 2. Handle Khalti ePayment v2 gateway redirect
+    if (formData.paymentMethod === 'KHALTI') {
+      toast.info('Connecting to Khalti digital wallet...')
+      try {
+        const khaltiRes = await fetch('/api/payment/khalti/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderNumber,
+            totalAmount: total,
+            customer: {
+              name: formData.name,
+              email: formData.email,
+              phone: formData.phone,
+            },
+          }),
+        })
+        const khaltiData = await khaltiRes.json()
+
+        if (khaltiData.success && khaltiData.paymentUrl) {
+          window.location.href = khaltiData.paymentUrl
+          return
+        }
+        throw new Error(khaltiData.error || 'Failed to initialize Khalti payment')
+      } catch (khaltiErr: any) {
+        setSubmitting(false)
+        setErrorMsg(khaltiErr.message || 'Unable to connect to Khalti. Please choose another payment method.')
+        toast.error('Khalti Error: ' + (khaltiErr.message || 'Connection failed'))
+        return
+      }
+    }
+
+    // 3. Cash on Delivery (Standard flow)
     await new Promise((r) => setTimeout(r, 600))
     clearCart()
     setSubmitting(false)

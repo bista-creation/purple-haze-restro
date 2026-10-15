@@ -22,78 +22,121 @@ import { Footer } from '@/components/layout/Footer'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { RESTAURANT_INFO } from '@/lib/data/restaurant-data'
+import { useCartStore } from '@/store/cart'
 
 export default function OrderConfirmationPage() {
   const params = useParams()
   const orderId = (params?.id as string) || ''
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [paymentNotice, setPaymentNotice] = useState<{ method: string; ref: string } | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && orderId) {
-      // Look up order in localStorage
-      const saved = localStorage.getItem(`order_${orderId}`)
-      if (saved) {
-        setOrder(JSON.parse(saved))
-      } else {
-        // Fallback demo order snapshot
-        setOrder({
-          orderNumber: orderId,
-          createdAt: new Date().toISOString(),
-          customer: {
-            name: 'Valued Guest',
-            phone: '98520XXXXX',
-            email: 'guest@purplehaze.com',
-          },
-          orderType: 'DELIVERY',
-          deliveryZone: 'Biratnagar Core (Airport / Main Road)',
-          address: {
-            street: 'Airport Line, Ward 4',
-            area: 'Near Domestic Airport',
-            city: 'Biratnagar',
-          },
-          items: [
-            {
-              id: '1',
-              dishName: 'Purple Haze Special Thakali Thali',
-              quantity: 2,
-              unitPrice: 550,
-              totalPrice: 1100,
-              variantName: 'Chicken Thali',
-            },
-            {
-              id: '2',
-              dishName: 'Steamed Chicken Momo (10 Pcs)',
-              quantity: 1,
-              unitPrice: 240,
-              totalPrice: 240,
-              variantName: 'Pan-Fried (Kothey)',
-            },
-            {
-              id: '3',
-              dishName: 'Signature Purple Haze Galaxy Mocktail',
-              quantity: 2,
-              unitPrice: 240,
-              totalPrice: 480,
-            },
-          ],
-          pricing: {
-            subtotal: 1820,
-            discount: 182,
-            couponCode: 'PURPLE10',
-            deliveryFee: 50,
-            total: 1688,
-          },
-          payment: {
-            method: 'CASH_ON_DELIVERY',
-            status: 'PENDING',
-            amount: 1688,
-          },
-          status: 'CONFIRMED',
-          estimatedTime: 35,
+      // Clear cart when reaching confirmation
+      useCartStore.getState().clearCart()
+
+      const sp = new URLSearchParams(window.location.search)
+      const isSuccess = sp.get('payment') === 'success'
+      const method = sp.get('method')
+      const ref = sp.get('ref') || sp.get('pidx')
+
+      if (isSuccess) {
+        setPaymentNotice({
+          method: method?.toUpperCase() || 'ONLINE',
+          ref: ref || 'Verified',
         })
       }
-      setLoading(false)
+
+      // Fetch live order from database first
+      fetch(`/api/orders?orderNumber=${encodeURIComponent(orderId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.data) {
+            setOrder(data.data)
+            localStorage.setItem(`order_${orderId}`, JSON.stringify(data.data))
+            setLoading(false)
+            return
+          }
+          throw new Error('Fallback to local')
+        })
+        .catch(() => {
+          // Look up order in localStorage
+          const saved = localStorage.getItem(`order_${orderId}`)
+          if (saved) {
+            const parsed = JSON.parse(saved)
+            if (isSuccess) {
+              parsed.status = 'CONFIRMED'
+              parsed.payment = {
+                ...parsed.payment,
+                status: 'PAID',
+                method: method ? (method.toUpperCase() as any) : parsed.payment?.method,
+                transactionId: ref || parsed.payment?.transactionId,
+              }
+              localStorage.setItem(`order_${orderId}`, JSON.stringify(parsed))
+            }
+            setOrder(parsed)
+          } else {
+            // Fallback demo order snapshot
+            setOrder({
+              orderNumber: orderId,
+              createdAt: new Date().toISOString(),
+              customer: {
+                name: 'Valued Guest',
+                phone: '98520XXXXX',
+                email: 'guest@purplehaze.com',
+              },
+              orderType: 'DELIVERY',
+              deliveryZone: 'Biratnagar Core (Airport / Main Road)',
+              address: {
+                street: 'Airport Line, Ward 4',
+                area: 'Near Domestic Airport',
+                city: 'Biratnagar',
+              },
+              items: [
+                {
+                  id: '1',
+                  dishName: 'Purple Haze Special Thakali Thali',
+                  quantity: 2,
+                  unitPrice: 550,
+                  totalPrice: 1100,
+                  variantName: 'Chicken Thali',
+                },
+                {
+                  id: '2',
+                  dishName: 'Steamed Chicken Momo (10 Pcs)',
+                  quantity: 1,
+                  unitPrice: 240,
+                  totalPrice: 240,
+                  variantName: 'Pan-Fried (Kothey)',
+                },
+                {
+                  id: '3',
+                  dishName: 'Signature Purple Haze Galaxy Mocktail',
+                  quantity: 2,
+                  unitPrice: 240,
+                  totalPrice: 480,
+                },
+              ],
+              pricing: {
+                subtotal: 1820,
+                discount: 182,
+                couponCode: 'PURPLE10',
+                deliveryFee: 50,
+                total: 1688,
+              },
+              payment: {
+                method: isSuccess ? (method?.toUpperCase() || 'ESEWA') : 'CASH_ON_DELIVERY',
+                status: isSuccess ? 'PAID' : 'PENDING',
+                amount: 1688,
+                transactionId: ref || undefined,
+              },
+              status: 'CONFIRMED',
+              estimatedTime: 35,
+            })
+          }
+          setLoading(false)
+        })
     }
   }, [orderId])
 
@@ -137,6 +180,34 @@ export default function OrderConfirmationPage() {
             <span>Order #: {order?.orderNumber}</span>
           </div>
         </div>
+
+        {/* Payment Verified Notice */}
+        {(paymentNotice || order?.payment?.status === 'PAID') && (
+          <div className="mb-6 bg-gradient-to-r from-emerald-500/10 via-primary/10 to-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                ✓
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  Payment Verified & Received
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Method: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{paymentNotice?.method || order?.payment?.method || 'Digital Wallet'}</strong>
+                  {paymentNotice?.ref && paymentNotice.ref !== 'Verified' && (
+                    <span> • Ref: <code className="bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">{paymentNotice.ref}</code></span>
+                  )}
+                  {order?.payment?.transactionId && !paymentNotice?.ref && (
+                    <span> • Ref: <code className="bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">{order.payment.transactionId}</code></span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full border border-emerald-500/30">
+              Verified by Gateway
+            </span>
+          </div>
+        )}
 
         {/* Invoice / Ticket Card */}
         <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-md space-y-6 print:border-none print:shadow-none">
