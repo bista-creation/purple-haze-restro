@@ -1,0 +1,45 @@
+{
+  "name": "Purple Haze Restro & Garden",
+  "tagline": "Flavors Under the Open Sky",
+  "phone": "+977 9851150987",
+  "address": "Airport Line, Airport Road, Biratnagar - 4, Morang, Koshi Province, Nepal",
+  "email": "contact@purplehazerestro.com",
+  "taxRate": 0,
+  "minOrderDelivery": 300,
+  "codEnabled": true,
+  "esewaEnabled": true,
+  "khaltiEnabled": true,
+  "zones": [
+    {
+      "name": "Biratnagar Core (Airport / Main Road / Tintoliya)",
+      "fee": 50,
+      "estTime": "30-40 mins"
+    },
+    {
+      "name": "Roadcess / Bargachhi / Kanchanbari",
+      "fee": 70,
+      "estTime": "35-45 mins"
+    },
+    {
+      "name": "Rani / Customs Border Area",
+      "fee": 100,
+      "estTime": "45-60 mins"
+    },
+    {
+      "name": "Mills Area / Jogbani Border",
+      "fee": 120,
+      "estTime": "50-65 mins"
+    }
+  ],
+  "openingHours": [
+    {
+      "days": "Sunday - Thursday",
+      "hours": "10:00 AM - 10:00 PM"
+    },
+    {
+      "days": "Friday - Saturday",
+      "hours": "10:00 AM - 11:00 PM"
+    }
+  ],
+  "updatedAt": "2026-10-15T10:17:20.501Z"
+}
