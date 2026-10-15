@@ -4,12 +4,19 @@ import { redirect } from 'next/navigation'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminHeader } from '@/components/admin/AdminHeader'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await auth()
+  let session = null
+  try {
+    session = await auth()
+  } catch {
+    session = null
+  }
 
   // Strict Server-Side Security:
   // Reject unauthenticated visitors or regular CUSTOMER accounts

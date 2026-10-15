@@ -254,5 +254,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     },
   },
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || 'ph_sec_9f7b1c4e2a8d5f309a6b8c1d4e7f2a5b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f',
 })
