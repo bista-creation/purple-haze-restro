@@ -12,6 +12,7 @@ import {
   Sparkles,
   PhoneCall,
 } from 'lucide-react'
+import { RESTAURANT_INFO } from '@/lib/data/restaurant-data'
 
 interface ExperienceItem {
   number: string
@@ -120,12 +121,12 @@ function Experience3DCard({ item }: { item: ExperienceItem }) {
             : 'transform 650ms cubic-bezier(0.23, 1, 0.32, 1)',
           transformStyle: 'preserve-3d',
         }}
-        className="group relative aspect-[4/3.3] sm:aspect-[16/11] w-full cursor-pointer rounded-3xl bg-[#24142e] shadow-[0_22px_50px_-12px_rgba(36,20,46,0.28)] hover:shadow-[0_35px_75px_-15px_rgba(91,40,115,0.45)]"
+        className="group relative aspect-[4/3.3] sm:aspect-[16/11] w-full cursor-pointer rounded-3xl bg-[#24142e] shadow-[0_22px_50px_-12px_rgba(36,20,46,0.28)] hover:shadow-[0_35px_75px_-15px_rgba(91,40,115,0.45)] dark:bg-charcoal-900 dark:shadow-[0_22px_50px_-12px_rgba(0,0,0,0.55)] dark:hover:shadow-[0_35px_75px_-15px_rgba(147,51,234,0.3)]"
       >
         {/* Outer Glowing 3D Border Rim */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -inset-[1px] rounded-3xl bg-gradient-to-br from-white/40 via-[#9b7426]/30 to-[#5b2873]/50 opacity-60 transition-opacity duration-500 group-hover:opacity-100"
+          className="pointer-events-none absolute -inset-[1px] rounded-3xl bg-gradient-to-br from-white/40 via-[#9b7426]/30 to-[#5b2873]/50 dark:from-white/20 dark:via-amber-400/30 dark:to-purple-500/50 opacity-60 transition-opacity duration-500 group-hover:opacity-100"
         />
 
         {/* Base Image Container (Clipped) */}
@@ -222,50 +223,50 @@ export function NewFeature() {
   return (
     <section
       aria-labelledby="experiences-heading"
-      className="relative overflow-hidden bg-[#faf7f2] px-5 py-24 text-[#24142e] sm:px-8 sm:py-32"
+      className="relative overflow-hidden bg-[#faf7f2] dark:bg-charcoal-950 px-5 py-24 text-[#24142e] dark:text-purple-100 sm:px-8 sm:py-32 transition-colors duration-300"
     >
       {/* Ambient 3D Background Mesh & Architectural Grid */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#79518b0a_1px,transparent_1px),linear-gradient(to_bottom,#79518b0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_40%,#000_60%,transparent_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#79518b0a_1px,transparent_1px),linear-gradient(to_bottom,#79518b0a_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_40%,#000_60%,transparent_100%)]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-28 top-10 h-[28rem] w-[28rem] rounded-full bg-gradient-to-br from-[#e6d5f2] via-[#f3e7d3] to-transparent opacity-80 blur-3xl"
+        className="pointer-events-none absolute -right-28 top-10 h-[28rem] w-[28rem] rounded-full bg-gradient-to-br from-[#e6d5f2] via-[#f3e7d3] to-transparent dark:from-purple-900/30 dark:via-amber-500/10 dark:to-transparent opacity-80 dark:opacity-50 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-32 bottom-16 h-96 w-96 rounded-full bg-gradient-to-tr from-[#eadcf5] via-[#f7eedc] to-transparent opacity-70 blur-3xl"
+        className="pointer-events-none absolute -left-32 bottom-16 h-96 w-96 rounded-full bg-gradient-to-tr from-[#eadcf5] via-[#f7eedc] to-transparent dark:from-purple-950/40 dark:via-fuchsia-950/20 dark:to-transparent opacity-70 dark:opacity-40 blur-3xl"
       />
 
       <div className="relative mx-auto max-w-7xl">
         {/* Editorial Header Section */}
         <div className="mb-16 grid gap-8 md:mb-24 md:grid-cols-[1fr_auto] md:items-end">
           <div className="max-w-2xl">
-            <div className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-[#79518b]/20 bg-white/80 px-4 py-1.5 shadow-sm backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-[#9b7426]" />
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-[#5b2873]">
+            <div className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-[#79518b]/20 dark:border-purple-500/30 bg-white/80 dark:bg-charcoal-900/80 px-4 py-1.5 shadow-sm backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5 text-[#9b7426] dark:text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-[#5b2873] dark:text-purple-300">
                 Purple Haze · Biratnagar
               </span>
             </div>
 
             <h2
               id="experiences-heading"
-              className="font-[var(--font-heading)] text-4xl leading-[1.1] tracking-tight sm:text-6xl lg:text-7xl"
+              className="font-[var(--font-heading)] text-4xl leading-[1.1] tracking-tight text-[#24142e] dark:text-white sm:text-6xl lg:text-7xl"
             >
               Gather around
-              <span className="mt-1 block bg-gradient-to-r from-[#5b2873] via-[#79518b] to-[#9b7426] bg-clip-text italic text-transparent">
+              <span className="mt-1 block bg-gradient-to-r from-[#5b2873] via-[#79518b] to-[#9b7426] dark:from-purple-300 dark:via-fuchsia-300 dark:to-amber-300 bg-clip-text italic text-transparent">
                 something good.
               </span>
             </h2>
           </div>
 
-          <div className="relative rounded-2xl border border-[#e5dce8]/80 bg-white/60 p-6 shadow-[0_10px_30px_-15px_rgba(36,20,46,0.08)] backdrop-blur-md md:max-w-sm">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#9b7426]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#9b7426]" />
-              The Restro & Garden Experience
+          <div className="relative rounded-2xl border border-[#e5dce8]/80 dark:border-purple-800/40 bg-white/70 dark:bg-charcoal-900/80 p-6 shadow-[0_10px_30px_-15px_rgba(36,20,46,0.08)] dark:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.4)] backdrop-blur-md md:max-w-sm">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#9b7426] dark:text-amber-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#9b7426] dark:bg-amber-400" />
+              The Restro &amp; Garden Experience
             </div>
-            <p className="text-base leading-relaxed text-[#574b5c]">
+            <p className="text-base leading-relaxed text-[#574b5c] dark:text-purple-200/85">
               Garden-side dinners, signature flavors, and a little more room for
               the moments worth sharing.
             </p>
@@ -280,22 +281,22 @@ export function NewFeature() {
         </div>
 
         {/* Floating 3D Glassmorphic Action Dock */}
-        <div className="mt-20 rounded-3xl border border-white/80 bg-white/75 p-6 shadow-[0_20px_50px_-15px_rgba(91,40,115,0.12)] backdrop-blur-xl sm:p-8">
+        <div className="mt-20 rounded-3xl border border-white/80 dark:border-purple-900/50 bg-white/80 dark:bg-charcoal-900/85 p-6 shadow-[0_20px_50px_-15px_rgba(91,40,115,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8 transition-colors duration-300">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <a
-              href="https://share.google/vsLUbVcb9jrm2u5gv"
+              href="https://maps.google.com/?q=Purple+Haze+Restro+Biratnagar+Nepal"
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-4 text-sm font-medium text-[#4a3f50] transition hover:text-[#5b2873]"
+              className="group inline-flex items-center gap-4 text-sm font-medium text-[#4a3f50] dark:text-purple-200 transition hover:text-[#5b2873] dark:hover:text-amber-300"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5eef9] text-[#9b7426] shadow-inner transition-transform duration-300 group-hover:scale-105 group-hover:bg-[#5b2873] group-hover:text-white">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5eef9] dark:bg-purple-950/80 text-[#9b7426] dark:text-amber-400 shadow-inner transition-transform duration-300 group-hover:scale-105 group-hover:bg-[#5b2873] dark:group-hover:bg-amber-400 group-hover:text-white dark:group-hover:text-charcoal-950">
                 <MapPin aria-hidden="true" className="h-5 w-5" />
               </span>
               <div>
-                <span className="block text-xs uppercase tracking-widest text-[#8c7f92]">
-                  Location & Directions
+                <span className="block text-xs uppercase tracking-widest text-[#8c7f92] dark:text-purple-300/70">
+                  Location &amp; Directions
                 </span>
-                <span className="mt-0.5 inline-flex items-center gap-1.5 text-base font-semibold text-[#24142e] group-hover:text-[#5b2873]">
+                <span className="mt-0.5 inline-flex items-center gap-1.5 text-base font-semibold text-[#24142e] dark:text-white group-hover:text-[#5b2873] dark:group-hover:text-amber-300">
                   Find us on Airport Road, Biratnagar
                   <ArrowUpRight
                     aria-hidden="true"
@@ -308,15 +309,15 @@ export function NewFeature() {
             <div className="flex flex-wrap items-center gap-4">
               <Link
                 href="/menu"
-                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full border-2 border-[#5b2873]/20 bg-white px-7 py-3.5 text-sm font-semibold text-[#5b2873] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#5b2873] hover:bg-[#faf5fc] hover:shadow-md active:translate-y-0"
+                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full border-2 border-[#5b2873]/20 dark:border-purple-400/30 bg-white dark:bg-charcoal-800 px-7 py-3.5 text-sm font-semibold text-[#5b2873] dark:text-purple-200 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#5b2873] dark:hover:border-amber-400 dark:hover:text-white hover:bg-[#faf5fc] dark:hover:bg-purple-950/50 hover:shadow-md active:translate-y-0"
               >
                 <Utensils className="h-4 w-4" />
                 Explore the menu
               </Link>
 
               <a
-                href="tel:+9779851150987"
-                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#5b2873] to-[#3d194f] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_25px_-5px_rgba(91,40,115,0.5)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_15px_30px_-5px_rgba(91,40,115,0.65)] active:translate-y-0"
+                href={`tel:${RESTAURANT_INFO.primaryPhone}`}
+                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-700 via-purple-600 to-amber-600 dark:from-purple-800 dark:via-purple-700 dark:to-amber-500 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_25px_-5px_rgba(91,40,115,0.4)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.6)] transition-all duration-300 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0"
               >
                 <PhoneCall className="h-4 w-4 text-[#e2b857]" />
                 Call to plan a visit

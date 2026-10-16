@@ -144,7 +144,7 @@ export function Navbar() {
   return (
     <>
       {/* Top Notification Bar */}
-      <div className="bg-purple-950 text-purple-100 text-xs py-1.5 px-4 hidden md:block border-b border-purple-900/40">
+      <div className="bg-charcoal-950 text-purple-100 text-xs py-1.5 px-4 hidden md:block border-b border-purple-900/40">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-6">
             <span className="flex items-center gap-1.5 text-gold-400 font-medium">
@@ -169,12 +169,12 @@ export function Navbar() {
 
       {/* Main Header */}
       <header
-  className={`sticky top-0 z-40 w-full border-b transition-all duration-300 ${
-    scrolled
-      ? 'bg-white dark:bg-purple-950 shadow-md border-gray-200 dark:border-purple-800 py-2.5'
-      : 'bg-white dark:bg-purple-950 border-gray-200 dark:border-purple-800 py-3.5'
-  }`}
->
+        className={`sticky top-0 z-40 w-full border-b transition-all duration-300 ${
+          scrolled
+            ? 'bg-white/95 dark:bg-charcoal-950/95 backdrop-blur-md shadow-md border-gray-200 dark:border-purple-900/40 py-2.5'
+            : 'bg-white dark:bg-charcoal-950 border-gray-200 dark:border-purple-900/40 py-3.5'
+        }`}
+      >
         <div className="container mx-auto px-4 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -206,8 +206,8 @@ export function Navbar() {
                   href={link.href}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                     active
-                      ? 'text-primary font-bold'
-                      : 'text-foreground/80 hover:text-primary hover:bg-purple-100/60 dark:hover:bg-muted/50'
+                      ? 'text-primary dark:text-amber-400 font-bold'
+                      : 'text-foreground/80 dark:text-purple-100/90 hover:text-primary dark:hover:text-amber-300 hover:bg-purple-100/60 dark:hover:bg-charcoal-900/80'
                   }`}
                 >
                   {link.label}
@@ -410,7 +410,7 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden rounded-lg w-9 h-9"
+              className="lg:hidden rounded-lg w-9 h-9 text-foreground dark:text-purple-100 hover:bg-muted dark:hover:bg-charcoal-900"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}
@@ -426,7 +426,7 @@ export function Navbar() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden border-t border-border/60 bg-background/98 backdrop-blur-xl px-4 py-4 space-y-3"
+              className="lg:hidden border-t border-gray-200 dark:border-purple-900/40 bg-white/98 dark:bg-charcoal-950/98 backdrop-blur-xl px-4 py-4 space-y-3"
             >
               <div className="flex flex-col space-y-1">
                 {navLinks.map((link) => {
@@ -438,8 +438,8 @@ export function Navbar() {
                       onClick={() => setMobileMenuOpen(false)}
                       className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                         active
-                          ? 'bg-primary/10 text-primary font-semibold'
-                          : 'text-foreground/80 hover:bg-muted'
+                          ? 'bg-primary/10 text-primary dark:text-amber-400 font-semibold dark:bg-purple-950/40'
+                          : 'text-foreground/80 dark:text-purple-100/90 hover:bg-muted dark:hover:bg-charcoal-900'
                       }`}
                     >
                       {link.label}
