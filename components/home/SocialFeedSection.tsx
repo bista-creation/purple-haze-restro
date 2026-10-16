@@ -2,12 +2,20 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { Instagram, Facebook, Heart, ExternalLink } from 'lucide-react'
+import { Instagram, Facebook } from 'lucide-react'
 import { RESTAURANT_INFO, GALLERY_DATA } from '@/lib/data/restaurant-data'
 import { Button } from '@/components/ui/button'
 
 export function SocialFeedSection() {
-  const feedImages = GALLERY_DATA.slice(0, 6)
+  // Curated showcase: garden, thali, night fairy lights, royal biryani, banquet hall, sizzling wok
+  const feedImages = [
+    GALLERY_DATA.find((g) => g.id === 'g-gard-1') || GALLERY_DATA[0],
+    GALLERY_DATA.find((g) => g.id === 'g-food-1') || GALLERY_DATA[1],
+    GALLERY_DATA.find((g) => g.id === 'g-gard-4') || GALLERY_DATA[2],
+    GALLERY_DATA.find((g) => g.id === 'g-food-7') || GALLERY_DATA[3],
+    GALLERY_DATA.find((g) => g.id === 'g-banq-1') || GALLERY_DATA[4],
+    GALLERY_DATA.find((g) => g.id === 'g-food-13') || GALLERY_DATA[5],
+  ]
 
   return (
     <section className="py-20 bg-background border-t border-border/40">
@@ -22,7 +30,7 @@ export function SocialFeedSection() {
               #PurpleHazeBiratnagar
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Join over 5,000+ followers on Facebook & Instagram. Tag us in your food & garden memories!
+              Join our growing community on Instagram &amp; Facebook. Tag us in your food &amp; garden memories!
             </p>
           </div>
 
@@ -44,7 +52,7 @@ export function SocialFeedSection() {
             <Button
               asChild
               size="sm"
-              className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs gap-1.5 h-9 shadow-sm"
+              className="rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white text-xs gap-1.5 h-9 shadow-sm hover:opacity-90"
             >
               <a
                 href={RESTAURANT_INFO.socials.instagram}
@@ -58,14 +66,14 @@ export function SocialFeedSection() {
         </div>
 
         {/* Gallery Feed Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
           {feedImages.map((img) => (
             <a
               key={img.id}
               href={RESTAURANT_INFO.socials.instagram}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative h-48 rounded-xl overflow-hidden bg-muted block shadow-sm"
+              className="group relative h-48 sm:h-52 rounded-2xl overflow-hidden bg-muted block shadow-sm border border-border/60 hover:shadow-xl transition-all duration-300"
             >
               <Image
                 src={img.url}
@@ -74,10 +82,13 @@ export function SocialFeedSection() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
                 sizes="(max-width: 768px) 50vw, 16vw"
               />
-              <div className="absolute inset-0 bg-charcoal-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center text-white">
-                <Instagram className="w-5 h-5 text-gold-400 mb-1" />
-                <span className="text-[10px] font-medium line-clamp-2">
+              <div className="absolute inset-0 bg-charcoal-950/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-3 text-center text-white backdrop-blur-[2px]">
+                <Instagram className="w-6 h-6 text-gold-400 mb-2" />
+                <span className="text-[11px] font-semibold leading-snug line-clamp-2">
                   {img.caption}
+                </span>
+                <span className="text-[10px] text-purple-200/80 mt-1 uppercase tracking-wider font-mono">
+                  @purplehaze.brt
                 </span>
               </div>
             </a>

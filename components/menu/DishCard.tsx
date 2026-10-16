@@ -85,7 +85,7 @@ export function DishCard({ dish }: DishCardProps) {
         {/* Image & Badges */}
         <div className="relative h-48 w-full overflow-hidden bg-muted">
           <Image
-            src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600'}
+            src={dish.image || '/images/food-presentation.jpg'}
             alt={dish.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"

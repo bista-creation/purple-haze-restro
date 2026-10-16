@@ -97,7 +97,7 @@ export function addDish(newDishData: {
       : undefined,
     image:
       newDishData.image?.trim() ||
-      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800&auto=format&fit=crop',
+      '/images/food-presentation.jpg',
     isVeg: Boolean(newDishData.isVeg),
     spicyLevel: Number(newDishData.spicyLevel ?? 1),
     isAvailable: true,

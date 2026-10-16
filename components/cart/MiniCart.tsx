@@ -210,7 +210,7 @@ export function MiniCart() {
                 {/* Thumbnail */}
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-border/80 bg-muted">
                   <Image
-                    src={item.dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=200'}
+                    src={item.dish.image || '/images/food-presentation.jpg'}
                     alt={item.dish.name}
                     fill
                     className="object-cover"

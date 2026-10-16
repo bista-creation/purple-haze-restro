@@ -62,7 +62,7 @@ export function HeroSection() {
           preload="metadata"
           aria-hidden="true"
           disablePictureInPicture
-          poster="/images/hero-poster.jpg"
+          poster="/images/purplehaze-longshot.jpg"
         >
           <source
             src="/videos/purple-haze-hero.mp4"

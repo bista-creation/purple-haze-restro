@@ -82,7 +82,7 @@ export default function AdminMenuPage() {
     spicyLevel: 1,
     isPopular: false,
     isFeatured: false,
-    image: 'https://images.unsplash.com/photo-1625398407795-856638847727?q=80&w=800&auto=format&fit=crop',
+    image: '/images/food-presentation.jpg',
     tags: 'Chef Special, Popular',
   })
 
@@ -280,7 +280,7 @@ export default function AdminMenuPage() {
           spicyLevel: 1,
           isPopular: false,
           isFeatured: false,
-          image: 'https://images.unsplash.com/photo-1625398407795-856638847727?q=80&w=800&auto=format&fit=crop',
+          image: '/images/food-presentation.jpg',
           tags: 'Chef Special, Popular',
         })
       } else {
@@ -471,7 +471,7 @@ export default function AdminMenuPage() {
                     <div className="flex items-center gap-3">
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-muted border border-border shadow-xs group">
                         <Image
-                          src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300'}
+                          src={dish.image || '/images/food-presentation.jpg'}
                           alt={dish.name}
                           fill
                           unoptimized

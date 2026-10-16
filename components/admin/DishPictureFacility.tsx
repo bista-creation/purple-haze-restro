@@ -225,7 +225,7 @@ export function DishPictureFacility({
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="https://images.unsplash.com/..."
+              placeholder="/images/my-cuisine-photo.jpg or https://..."
               value={urlInput}
               onChange={(e) => handleUrlChange(e.target.value)}
               className="h-10 text-xs rounded-xl"
