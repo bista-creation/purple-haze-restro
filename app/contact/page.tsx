@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import {
   MapPin,
   Phone,
@@ -10,6 +11,10 @@ import {
   MessageCircle,
   CheckCircle2,
   Sparkles,
+  HelpCircle,
+  ChevronDown,
+  ShieldCheck,
+  ArrowRight,
 } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -29,6 +34,26 @@ export default function ContactPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
+
+  const faqs = [
+    {
+      q: 'How does online ordering and delivery work in Biratnagar?',
+      a: 'Browse our digital menu at /menu, choose your favorite dishes, customize spice levels or add-ons, and proceed to checkout. We deliver within 30–45 minutes across Biratnagar using insulated thermal containers to keep your meal piping hot and fresh.',
+    },
+    {
+      q: 'Which online payment methods do you accept?',
+      a: 'We accept eSewa ePay, Khalti Wallet, Fonepay QR, and Cash on Delivery. All online payments are encrypted through 256-bit SSL gateway tokens directly with authorized providers. Purple Haze never stores sensitive banking credentials.',
+    },
+    {
+      q: 'Can I book a table or banquet hall for private events?',
+      a: 'Yes! You can reserve dining tables at /reservations or book our Grand Banquet Hall (350 pax), Open Garden & Fountain Terrace (250 pax), or Meeting Hall (45 pax) at /events. Customized multi-course menus and decor are available.',
+    },
+    {
+      q: 'What is your refund policy if my food is damaged or incorrect?',
+      a: 'If any dish arrives damaged, spilled, or missing, notify us within 15 minutes of receipt for an immediate fresh dispatch or a refund to your original eSewa/Khalti wallet within 24–48 hours.',
+    },
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -310,6 +335,114 @@ export default function ContactPage() {
                   </Button>
                 </form>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="mt-16 border-t border-border pt-12">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold-400/15 text-gold-600 dark:text-gold-300 text-xs font-semibold mb-2">
+                <HelpCircle className="w-3.5 h-3.5 text-gold-500" />
+                <span>Quick Answers</span>
+              </div>
+              <h3 className="font-serif text-2xl font-bold text-foreground">
+                Frequently Asked Questions
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Got questions about delivery, payments, or bookings? We&apos;ve got answers.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-xl text-xs font-semibold h-9 shrink-0 gap-1.5 self-start sm:self-auto">
+              <Link href="/faq">
+                View All FAQs <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </div>
+
+          <div className="space-y-3 max-w-4xl">
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx
+              return (
+                <div
+                  key={idx}
+                  className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm"
+                >
+                  <button
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors focus:outline-none"
+                    aria-expanded={isOpen}
+                  >
+                    <span className="font-serif text-sm font-semibold text-foreground">
+                      {faq.q}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-primary' : ''
+                      }`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 sm:px-5 pb-5 pt-1 text-xs text-muted-foreground border-t border-border/50 leading-relaxed bg-muted/10">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Grievance Redressal Card */}
+        <div className="mt-12 bg-gradient-to-br from-card via-card to-primary/5 border border-primary/20 rounded-3xl p-6 sm:p-8 shadow-sm max-w-4xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2.5 max-w-xl">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Statutory Consumer Protection Cell</span>
+              </div>
+              <h3 className="font-serif text-xl font-bold text-foreground">
+                Grievance Officer &amp; Redressal Desk
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                In compliance with the Consumer Protection Directives of Nepal, Purple Haze Restro &amp; Garden maintains an official escalation desk for service complaints, order disputes, and transaction reconciliations.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
+                <div>
+                  <span className="font-semibold text-foreground block">Grievance Officer:</span>
+                  <span className="text-muted-foreground">Mr. Binod Karki (Operations Lead)</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground block">Resolution Guarantee:</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Within 24 – 48 Hours SLA</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground block">Direct Phone:</span>
+                  <a href="tel:+9779852022202" className="text-primary hover:underline font-medium">
+                    +977 9852022202 / 021-464193
+                  </a>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground block">Escalation Email:</span>
+                  <a href={`mailto:${RESTAURANT_INFO.email}`} className="text-primary hover:underline font-medium">
+                    {RESTAURANT_INFO.email}
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col gap-2.5">
+              <Button asChild className="rounded-xl text-xs font-semibold h-10 bg-primary hover:bg-primary-700">
+                <a href="tel:+9779852022202">
+                  <Phone className="w-3.5 h-3.5 mr-1.5" /> Call Escalation Desk
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl text-xs font-semibold h-10 gap-1.5">
+                <a href={RESTAURANT_INFO.socials.whatsapp} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp Support
+                </a>
+              </Button>
             </div>
           </div>
         </div>

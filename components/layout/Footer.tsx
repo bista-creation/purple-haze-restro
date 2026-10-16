@@ -59,9 +59,9 @@ export function Footer() {
     <footer className="bg-charcoal-950 text-purple-100 border-t border-purple-900/40 pt-16 pb-8">
       <div className="container mx-auto px-4">
         {/* Top Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-purple-900/40">
-          {/* Col 1: Brand & Story */}
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10 pb-12 border-b border-purple-900/40">
+          {/* Col 1: Brand, Story & Payment Gateways */}
+          <div className="lg:col-span-4 space-y-4">
             <Link href="/" className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-white shadow-lg border border-purple-400/40 p-0.5 shrink-0 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -84,6 +84,27 @@ export function Footer() {
             <p className="text-sm text-purple-200/80 leading-relaxed max-w-md">
               Biratnagar&apos;s premier multi-cuisine garden restaurant. Blending authentic Nepali flavors, rich Indian curries, sizzling Asian woks, and handcrafted Italian pizzas in an open-air ambiance with tranquil fountains and live music.
             </p>
+
+            {/* Payment Partners Badge */}
+            <div className="pt-1">
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-purple-300/70 block mb-1.5">
+                Verified Payment Partners
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 border border-purple-800 text-purple-200 font-medium">
+                  eSewa ePay
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 border border-purple-800 text-purple-200 font-medium">
+                  Khalti Wallet
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 border border-purple-800 text-purple-200 font-medium">
+                  Fonepay QR
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 border border-purple-800 text-purple-200 font-medium">
+                  Cash on Delivery
+                </span>
+              </div>
+            </div>
 
             {/* Social Links */}
             <div className="flex items-center space-x-3 pt-2">
@@ -118,7 +139,7 @@ export function Footer() {
           </div>
 
           {/* Col 2: Quick Links */}
-          <div className="space-y-3">
+          <div className="lg:col-span-2 space-y-3">
             <h4 className="font-serif text-base font-semibold text-white tracking-wide border-b border-purple-800/40 pb-2">
               Explore
             </h4>
@@ -156,34 +177,47 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 3: Cuisines & Facilities */}
-          <div className="space-y-3">
+          {/* Col 3: Legal & Policy Compliance */}
+          <div className="lg:col-span-3 space-y-3">
             <h4 className="font-serif text-base font-semibold text-white tracking-wide border-b border-purple-800/40 pb-2">
-              Cuisines & Spaces
+              Policies & Legal
             </h4>
             <ul className="space-y-2 text-sm text-purple-200/80">
               <li>
-                <span className="text-gold-400 font-medium">Nepali:</span> Thakali, Samay Baji, Momos
+                <Link href="/privacy-policy" className="hover:text-gold-400 transition-colors">
+                  Privacy Policy
+                </Link>
               </li>
               <li>
-                <span className="text-gold-400 font-medium">Indian:</span> Butter Chicken, Dum Biryani
+                <Link href="/terms-and-conditions" className="hover:text-gold-400 transition-colors">
+                  Terms & Conditions
+                </Link>
               </li>
               <li>
-                <span className="text-gold-400 font-medium">Chinese:</span> Chowmein, Chilli Paneer
+                <Link href="/refund-and-cancellation" className="hover:text-gold-400 transition-colors">
+                  Refund & Cancellation Policy
+                </Link>
               </li>
               <li>
-                <span className="text-gold-400 font-medium">Italian:</span> Wood-Fired Pizza & Pasta
+                <Link href="/shipping-and-delivery" className="hover:text-gold-400 transition-colors">
+                  Delivery & Shipping Policy
+                </Link>
               </li>
-              <li className="pt-2 text-xs text-purple-300">
-                • Grand Banquet Hall (350 cap)<br />
-                • Open Garden & Fountains (250 cap)<br />
-                • Executive Meeting Hall (45 cap)
+              <li>
+                <Link href="/faq" className="hover:text-gold-400 transition-colors">
+                  FAQs & Help Center
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="hover:text-gold-400 transition-colors">
+                  Grievance & Contact Desk
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Col 4: Contact & Location */}
-          <div className="space-y-3">
+          {/* Col 4: Contact & Hours */}
+          <div className="lg:col-span-3 space-y-3">
             <h4 className="font-serif text-base font-semibold text-white tracking-wide border-b border-purple-800/40 pb-2">
               Contact & Hours
             </h4>
@@ -266,16 +300,28 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-purple-300/60 gap-4">
+        <div className="pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-purple-300/60 gap-4">
           <p>© {new Date().getFullYear()} Purple Haze Restro & Garden, Biratnagar. All rights reserved.</p>
-          <div className="flex items-center space-x-6">
-            <Link href="/contact" className="hover:text-purple-200 transition-colors">
-              Help & Support
-            </Link>
-            <Link href="/about" className="hover:text-purple-200 transition-colors">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs">
+            <Link href="/privacy-policy" className="hover:text-gold-300 transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/admin" className="text-gold-400/80 hover:text-gold-300 transition-colors font-medium">
+            <Link href="/terms-and-conditions" className="hover:text-gold-300 transition-colors">
+              Terms & Conditions
+            </Link>
+            <Link href="/refund-and-cancellation" className="hover:text-gold-300 transition-colors">
+              Refund Policy
+            </Link>
+            <Link href="/shipping-and-delivery" className="hover:text-gold-300 transition-colors">
+              Delivery Policy
+            </Link>
+            <Link href="/faq" className="hover:text-gold-300 transition-colors">
+              FAQ & Grievances
+            </Link>
+            <Link href="/contact" className="hover:text-gold-300 transition-colors">
+              Contact
+            </Link>
+            <Link href="/admin" className="text-gold-400 hover:text-gold-300 transition-colors font-medium">
               Admin Portal
             </Link>
           </div>

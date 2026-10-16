@@ -41,5 +41,5 @@ prisma/*.db
 prisma/*.db-journal
 
 # Local dynamic data
-.data/orders.json
-.data/users.json
+.data/
+
