@@ -88,7 +88,7 @@ export function FeaturedDishes() {
                   {count}
                 </span>
               </button>
-            )
+             )
           })}
         </div>
 
