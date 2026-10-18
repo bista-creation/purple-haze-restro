@@ -19,6 +19,7 @@ import {
   ChefHat,
   Crown,
   UserCog,
+  X,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
@@ -26,12 +27,16 @@ interface AdminSidebarProps {
   userRole?: 'ADMIN' | 'STAFF'
   userName?: string
   userEmail?: string
+  onClose?: () => void
+  isMobileDrawer?: boolean
 }
 
 export function AdminSidebar({
   userRole: propRole,
   userName: propName,
   userEmail: propEmail,
+  onClose,
+  isMobileDrawer = false,
 }: AdminSidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
@@ -113,12 +118,20 @@ export function AdminSidebar({
     return pathname.startsWith(path)
   }
 
+  const containerClasses = isMobileDrawer
+    ? 'w-full bg-charcoal-950 text-purple-100 flex flex-col justify-between h-full overflow-y-auto'
+    : 'w-64 bg-charcoal-950 text-purple-100 flex flex-col justify-between border-r border-purple-900/40 shrink-0 min-h-screen'
+
   return (
-    <aside className="w-64 bg-charcoal-950 text-purple-100 flex flex-col justify-between border-r border-purple-900/40 shrink-0 min-h-screen">
+    <aside className={containerClasses}>
       <div>
         {/* Brand Header */}
-        <div className="p-5 border-b border-purple-900/40">
-          <Link href="/admin" className="flex items-center gap-3 group">
+        <div className="p-5 border-b border-purple-900/40 flex items-center justify-between">
+          <Link
+            href="/admin"
+            onClick={onClose}
+            className="flex items-center gap-3 group"
+          >
             <div className="w-11 h-11 rounded-full overflow-hidden bg-white shadow-md border border-amber-400/40 p-0.5 shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -137,25 +150,35 @@ export function AdminSidebar({
             </div>
           </Link>
 
-          {/* Role Status Pill */}
-          <div className="mt-3 pt-3 border-t border-purple-900/30 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              {isAdmin ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
-                  <Crown className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Admin Mode</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
-                  <ChefHat className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Kitchen Staff</span>
-                </div>
-              )}
-            </div>
-            <span className="text-[10px] text-purple-300/70 font-mono">
-              Airport Line
-            </span>
+          {isMobileDrawer && onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800 text-purple-200 hover:text-white transition-colors"
+              aria-label="Close navigation"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
+        {/* Role Status Pill */}
+        <div className="px-5 py-3 border-b border-purple-900/30 flex items-center justify-between bg-charcoal-900/50">
+          <div className="flex items-center gap-1.5">
+            {isAdmin ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>Admin Mode</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                <ChefHat className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Kitchen Staff</span>
+              </div>
+            )}
           </div>
+          <span className="text-[10px] text-purple-300/70 font-mono">
+            Airport Line
+          </span>
         </div>
 
         {/* Navigation Items */}
@@ -169,6 +192,7 @@ export function AdminSidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onClose}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   active
                     ? 'bg-primary-600 text-white shadow-md shadow-primary-900/50'
@@ -215,6 +239,7 @@ export function AdminSidebar({
       <div className="p-4 border-t border-purple-900/40 space-y-2">
         <Link
           href="/"
+          onClick={onClose}
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-purple-300 hover:text-white hover:bg-purple-900/40 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

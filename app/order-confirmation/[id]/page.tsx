@@ -16,6 +16,7 @@ import {
   Truck,
   Store,
   Utensils,
+  MessageCircle,
 } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -23,6 +24,7 @@ import { formatPrice, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { RESTAURANT_INFO } from '@/lib/data/restaurant-data'
 import { useCartStore } from '@/store/cart'
+import { getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
 
 export default function OrderConfirmationPage() {
   const params = useParams()
@@ -336,6 +338,19 @@ export default function OrderConfirmationPage() {
               <Link href={`/track-order?orderNumber=${order?.orderNumber}&phone=${order?.customer?.phone || ''}`}>
                 <Truck className="w-4 h-4" /> Live Order Tracking
               </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold h-11 shadow-md gap-2"
+            >
+              <a
+                href={getWhatsAppOrderUrl(order)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircle className="w-4 h-4" /> WhatsApp Order ({ADMIN_WHATSAPP_NUMBER})
+              </a>
             </Button>
 
             <Button

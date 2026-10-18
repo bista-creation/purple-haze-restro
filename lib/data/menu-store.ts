@@ -18,6 +18,28 @@ function ensureDataDir() {
   }
 }
 
+function saveBase64Image(dataUrl: string, dishId: string): string {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) return dataUrl
+  try {
+    const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
+    if (matches) {
+      const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1]
+      const buffer = Buffer.from(matches[2], 'base64')
+      const dishesImgDir = path.join(process.cwd(), 'public', 'images', 'dishes')
+      if (!fs.existsSync(dishesImgDir)) {
+        fs.mkdirSync(dishesImgDir, { recursive: true })
+      }
+      const fileName = `dish-${dishId.replace(/[^a-zA-Z0-9-]/g, '')}-${Date.now()}.${ext}`
+      const filePath = path.join(dishesImgDir, fileName)
+      fs.writeFileSync(filePath, buffer)
+      return `/images/dishes/${fileName}`
+    }
+  } catch (err) {
+    console.error('Error saving uploaded base64 image:', err)
+  }
+  return '/images/food-presentation.jpg'
+}
+
 function loadDishesFromDisk(): DishItem[] {
   if (dishesCache) return dishesCache
 
@@ -27,7 +49,20 @@ function loadDishesFromDisk(): DishItem[] {
       const content = fs.readFileSync(DISHES_FILE, 'utf-8')
       const parsed = JSON.parse(content)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        dishesCache = parsed
+        // Sanitize any excessively large inline base64 images to static paths
+        let modified = false
+        const sanitized = parsed.map((dish) => {
+          if (dish.image && dish.image.startsWith('data:image/')) {
+            const savedUrl = saveBase64Image(dish.image, dish.id || 'legacy')
+            modified = true
+            return { ...dish, image: savedUrl }
+          }
+          return dish
+        })
+        dishesCache = sanitized
+        if (modified) {
+          saveDishesToDisk(sanitized)
+        }
         return dishesCache!
       }
     }
@@ -74,10 +109,14 @@ export function addDish(newDishData: {
   tags?: string[]
 }): DishItem {
   const all = loadDishesFromDisk()
-  const cat = CATEGORIES_DATA.find((c) => c.id === newDishData.categoryId)
+  const cat = CATEGORIES_DATA.find((c) => c.id === newDishData.categoryId || c.slug === newDishData.categoryId)
+
+  const dishId = `dish-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+  const rawImage = newDishData.image?.trim() || '/images/food-presentation.jpg'
+  const finalImage = rawImage.startsWith('data:image/') ? saveBase64Image(rawImage, dishId) : rawImage
 
   const dish: DishItem = {
-    id: `dish-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: dishId,
     name: newDishData.name.trim(),
     slug: newDishData.name
       .toLowerCase()
@@ -86,7 +125,7 @@ export function addDish(newDishData: {
       .replace(/(^-|-$)/g, ''),
     description: newDishData.description?.trim() || '',
     price: Number(newDishData.price) || 0,
-    categoryId: newDishData.categoryId,
+    categoryId: cat ? cat.id : newDishData.categoryId,
     category: cat
       ? {
           id: cat.id,
@@ -95,9 +134,7 @@ export function addDish(newDishData: {
           cuisine: cat.cuisine,
         }
       : undefined,
-    image:
-      newDishData.image?.trim() ||
-      '/images/food-presentation.jpg',
+    image: finalImage,
     isVeg: Boolean(newDishData.isVeg),
     spicyLevel: Number(newDishData.spicyLevel ?? 1),
     isAvailable: true,
@@ -120,7 +157,7 @@ export function updateDish(id: string, updates: Partial<DishItem>): DishItem | n
   const current = all[index]
   let updatedCategory = current.category
   if (updates.categoryId && updates.categoryId !== current.categoryId) {
-    const cat = CATEGORIES_DATA.find((c) => c.id === updates.categoryId)
+    const cat = CATEGORIES_DATA.find((c) => c.id === updates.categoryId || c.slug === updates.categoryId)
     if (cat) {
       updatedCategory = {
         id: cat.id,
@@ -131,9 +168,15 @@ export function updateDish(id: string, updates: Partial<DishItem>): DishItem | n
     }
   }
 
+  let finalImage = updates.image ?? current.image
+  if (finalImage && finalImage.startsWith('data:image/')) {
+    finalImage = saveBase64Image(finalImage, id)
+  }
+
   const updatedDish: DishItem = {
     ...current,
     ...updates,
+    image: finalImage,
     category: updatedCategory,
   }
 

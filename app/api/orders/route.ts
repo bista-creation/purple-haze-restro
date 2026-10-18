@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { generateOrderNumber } from '@/lib/utils'
 import { sendOrderPlacedEmail } from '@/lib/email'
+import { sendWhatsAppOrderAlert, getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
 import fs from 'fs'
 import path from 'path'
 
@@ -46,7 +47,7 @@ function saveOrderToFile(order: any) {
     } else {
       list.unshift(order)
     }
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(list.slice(0, 200), null, 2), 'utf-8')
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(list.slice(0, 300), null, 2), 'utf-8')
   } catch {
     // Ignore write errors
   }
@@ -132,6 +133,20 @@ export async function POST(req: Request) {
       // Also persist backup copy
       saveOrderToFile(order)
 
+      // Send WhatsApp Order Alert to 9851150987
+      try {
+        await sendWhatsAppOrderAlert({
+          ...order,
+          customer,
+          pricing,
+          tableNumber,
+          address,
+          orderNotes,
+        })
+      } catch (waErr) {
+        console.warn('[WhatsApp Notification Error]:', waErr)
+      }
+
       // Dispatch order confirmation email (awaited)
       if (customer?.email) {
         try {
@@ -159,7 +174,16 @@ export async function POST(req: Request) {
         }
       }
 
-      return NextResponse.json({ success: true, data: order }, { status: 201 })
+      const whatsAppUrl = getWhatsAppOrderUrl({
+        ...order,
+        customer,
+        pricing,
+        tableNumber,
+        address,
+        orderNotes,
+      })
+
+      return NextResponse.json({ success: true, data: order, whatsAppUrl }, { status: 201 })
     } catch (dbError) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[Orders] Database write fallback triggered:', dbError)
@@ -169,7 +193,11 @@ export async function POST(req: Request) {
         id: 'ord_' + Math.random().toString(36).substring(2, 9),
         orderNumber,
         customer,
-        orderType,
+        guestName: customer?.name || 'Walk-in Guest',
+        guestPhone: customer?.phone || '',
+        guestEmail: customer?.email || null,
+        orderType: orderType || 'DELIVERY',
+        tableNumber: tableNumber || null,
         items: items.map((item: any) => ({
           dishId: item.dishId || 'demo-dish',
           dishName: item.dishName || 'Dish',
@@ -181,6 +209,11 @@ export async function POST(req: Request) {
           totalPrice: item.totalPrice || item.unitPrice * item.quantity,
         })),
         pricing,
+        subtotal: pricing?.subtotal || 0,
+        deliveryFee: pricing?.deliveryFee || 0,
+        discountAmount: pricing?.discount || 0,
+        totalAmount: pricing?.total || 0,
+        total: pricing?.total || 0,
         payment: {
           method: paymentMethod || 'CASH_ON_DELIVERY',
           status: paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PAID',
@@ -188,11 +221,19 @@ export async function POST(req: Request) {
         },
         status: 'PLACED',
         deliveryAddress: address || null,
+        notes: orderNotes || null,
         estimatedTime: 35,
         createdAt: new Date().toISOString(),
       }
 
       saveOrderToFile(fallbackOrder)
+
+      // Send WhatsApp Order Alert to 9851150987
+      try {
+        await sendWhatsAppOrderAlert(fallbackOrder)
+      } catch (waErr) {
+        console.warn('[WhatsApp Notification Error]:', waErr)
+      }
 
       if (customer?.email) {
         try {
@@ -220,7 +261,9 @@ export async function POST(req: Request) {
         }
       }
 
-      return NextResponse.json({ success: true, data: fallbackOrder }, { status: 200 })
+      const whatsAppUrl = getWhatsAppOrderUrl(fallbackOrder)
+
+      return NextResponse.json({ success: true, data: fallbackOrder, whatsAppUrl }, { status: 200 })
     }
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
@@ -254,7 +297,9 @@ export async function GET(req: Request) {
     // 2. Check file store fallback
     const localOrders = loadOrdersFromFile()
     const found = localOrders.find(
-      (o) => o.orderNumber?.toUpperCase() === orderNumber.toUpperCase()
+      (o) =>
+        o.orderNumber?.toUpperCase() === orderNumber.toUpperCase() ||
+        o.id?.toUpperCase() === orderNumber.toUpperCase()
     )
     if (found) {
       return NextResponse.json({ success: true, data: found })
@@ -268,12 +313,75 @@ export async function GET(req: Request) {
     const orders = await prisma.order.findMany({
       include: { items: true, payment: true },
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
     })
-    return NextResponse.json({ success: true, data: orders })
+    if (orders && orders.length > 0) {
+      return NextResponse.json({ success: true, data: orders })
+    }
   } catch (error) {
     // Database offline, load from file store
+  }
+
+  const localOrders = loadOrdersFromFile()
+  // Ensure ordered by createdAt descending
+  localOrders.sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  )
+  return NextResponse.json({ success: true, data: localOrders })
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json()
+    const { id, orderNumber, status, estimatedTime, notes } = body
+
+    if (!id && !orderNumber) {
+      return NextResponse.json(
+        { success: false, error: 'Order ID or orderNumber is required.' },
+        { status: 400 }
+      )
+    }
+
+    // Update in Prisma if possible
+    try {
+      const updated = await prisma.order.update({
+        where: orderNumber ? { orderNumber } : { id },
+        data: {
+          ...(status ? { status } : {}),
+          ...(estimatedTime ? { estimatedTime: Number(estimatedTime) } : {}),
+          ...(notes ? { notes } : {}),
+        },
+        include: { items: true, payment: true },
+      })
+      saveOrderToFile(updated)
+      return NextResponse.json({ success: true, data: updated })
+    } catch {
+      // Prisma offline, update in file store
+    }
+
     const localOrders = loadOrdersFromFile()
-    return NextResponse.json({ success: true, data: localOrders })
+    const index = localOrders.findIndex(
+      (o) => o.orderNumber === orderNumber || o.id === id || o.orderNumber === id
+    )
+
+    if (index === -1) {
+      return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 })
+    }
+
+    localOrders[index] = {
+      ...localOrders[index],
+      ...(status ? { status } : {}),
+      ...(estimatedTime ? { estimatedTime: Number(estimatedTime) } : {}),
+      ...(notes ? { notes } : {}),
+      updatedAt: new Date().toISOString(),
+    }
+
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(localOrders, null, 2), 'utf-8')
+    return NextResponse.json({ success: true, data: localOrders[index] })
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to update order.' },
+      { status: 500 }
+    )
   }
 }

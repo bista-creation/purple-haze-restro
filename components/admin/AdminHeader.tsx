@@ -15,6 +15,9 @@ import {
   Crown,
   ChefHat,
   ArrowUpRight,
+  Menu,
+  MessageCircle,
+  Volume2,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -25,8 +28,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { signOut, useSession } from 'next-auth/react'
 import { toast } from 'sonner'
+import { ADMIN_WHATSAPP_INTERNATIONAL, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
 
 interface AdminHeaderProps {
   userRole?: 'ADMIN' | 'STAFF'
@@ -45,11 +51,34 @@ export function AdminHeader({
   const [mounted, setMounted] = useState(false)
   const [currentTime, setCurrentTime] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0)
 
   const role = (propRole || session?.user?.role || 'ADMIN') as 'ADMIN' | 'STAFF'
   const name = propName || session?.user?.name || (role === 'ADMIN' ? 'Administrator' : 'Kitchen Staff')
   const email = propEmail || session?.user?.email || (role === 'ADMIN' ? 'admin@purplehaze.com' : 'staff@purplehaze.com')
   const isAdmin = role === 'ADMIN'
+
+  // Poll for pending orders count
+  useEffect(() => {
+    const fetchOrderStats = () => {
+      fetch('/api/orders')
+        .then((res) => res.json())
+        .then((d) => {
+          if (d.success && Array.isArray(d.data)) {
+            const pending = d.data.filter(
+              (o: any) => o.status === 'PLACED' || o.status === 'PREPARING'
+            ).length
+            setPendingOrdersCount(pending)
+          }
+        })
+        .catch(() => {})
+    }
+
+    fetchOrderStats()
+    const pollInterval = setInterval(fetchOrderStats, 8000)
+    return () => clearInterval(pollInterval)
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -66,7 +95,7 @@ export function AdminHeader({
     update()
     const timer = setInterval(update, 1000)
 
-    // Load initial avatar from session (Google OAuth or Credentials)
+    // Load initial avatar from session
     const currentEmail = email.toLowerCase()
     if (session?.user?.image) {
       setAvatarUrl(session.user.image)
@@ -95,7 +124,7 @@ export function AdminHeader({
       })
       .catch(() => {})
 
-    // Listen to profile updates for this specific user
+    // Listen to profile updates
     const handleProfileUpdate = (e: any) => {
       if (!e.detail?.email || e.detail.email.toLowerCase() === currentEmail) {
         if (e.detail?.image !== undefined) {
@@ -124,9 +153,35 @@ export function AdminHeader({
   }
 
   return (
-    <header className="h-16 bg-card border-b border-border px-4 sm:px-6 flex items-center justify-between shrink-0 transition-colors">
-      {/* Search & Location Breadcrumb */}
-      <div className="flex items-center gap-3">
+    <header className="h-16 bg-card border-b border-border px-3 sm:px-6 flex items-center justify-between shrink-0 transition-colors">
+      {/* Left: Mobile Drawer Trigger + Brand / Breadcrumb */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Mobile Hamburger Drawer Trigger */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden rounded-xl text-foreground hover:bg-muted"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="p-0 border-r border-purple-900/40 w-72 max-w-[85vw] bg-charcoal-950 text-white"
+          >
+            <AdminSidebar
+              userRole={role}
+              userName={name}
+              userEmail={email}
+              isMobileDrawer
+              onClose={() => setMobileOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+
         <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
           Biratnagar HQ • Airport Road Line
         </span>
@@ -136,9 +191,28 @@ export function AdminHeader({
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center space-x-2 sm:space-x-3">
+      <div className="flex items-center space-x-1.5 sm:space-x-3">
+        {/* Direct WhatsApp Manager Hotline */}
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex items-center gap-1.5 h-9 rounded-xl border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-semibold"
+          title={`WhatsApp Alerts & Dispatch: ${ADMIN_WHATSAPP_NUMBER}`}
+        >
+          <a
+            href={`https://wa.me/${ADMIN_WHATSAPP_INTERNATIONAL}?text=Hello%20Purple%20Haze%20Manager,%20inquiry%20from%20admin%20portal`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="hidden md:inline">WhatsApp</span>
+            <span className="font-mono text-[11px]">{ADMIN_WHATSAPP_NUMBER}</span>
+          </a>
+        </Button>
+
         {/* Role Badge in Header */}
-        <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-muted border border-border text-xs font-bold">
+        <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-muted border border-border text-xs font-bold">
           {isAdmin ? (
             <>
               <Crown className="w-3.5 h-3.5 text-amber-500" />
@@ -176,15 +250,22 @@ export function AdminHeader({
           )}
         </Button>
 
-        {/* Live Notifications Indicator */}
+        {/* Live Notifications Indicator with Pending Orders Count */}
         <Button
+          asChild
           variant="ghost"
           size="icon"
           className="relative rounded-full w-9 h-9"
-          aria-label="Notifications"
+          aria-label="View Orders"
         >
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <Link href="/admin/orders">
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            {pendingOrdersCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
+                {pendingOrdersCount}
+              </span>
+            )}
+          </Link>
         </Button>
 
         {/* User Account & Sign Out Dropdown */}
@@ -192,7 +273,7 @@ export function AdminHeader({
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex items-center gap-2 px-2 rounded-xl hover:bg-muted"
+              className="flex items-center gap-2 px-1 sm:px-2 rounded-xl hover:bg-muted"
             >
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -242,6 +323,18 @@ export function AdminHeader({
                 <span>Profile & Photo Settings</span>
                 <User className="w-3.5 h-3.5 text-muted-foreground" />
               </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild className="rounded-xl cursor-pointer text-xs my-1">
+              <a
+                href={`https://wa.me/${ADMIN_WHATSAPP_INTERNATIONAL}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold"
+              >
+                <span>WhatsApp: {ADMIN_WHATSAPP_NUMBER}</span>
+                <MessageCircle className="w-3.5 h-3.5" />
+              </a>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild className="rounded-xl cursor-pointer text-xs my-1">

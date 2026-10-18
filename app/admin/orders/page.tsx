@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   ShoppingBag,
   Filter,
@@ -13,72 +13,145 @@ import {
   AlertCircle,
   Volume2,
   VolumeX,
+  MessageCircle,
+  RefreshCw,
+  ChefHat,
+  Sparkles,
 } from 'lucide-react'
 import { formatPrice, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
 
 export default function AdminOrdersPage() {
   const [soundAlerts, setSoundAlerts] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const knownOrderIds = useRef<Set<string>>(new Set())
+  const isFirstLoad = useRef(true)
 
-  const [orders, setOrders] = useState([
-    {
-      id: 'PH261014A3F2',
-      customer: 'Ramesh KC',
-      phone: '9852022202',
-      email: 'ramesh@example.com',
-      orderType: 'DELIVERY',
-      status: 'PREPARING',
-      deliveryAddress: 'Airport Line, Ward 4, Near Airport',
-      subtotal: 1638,
-      deliveryFee: 50,
-      total: 1688,
-      createdAt: new Date().toISOString(),
-      items: [
-        { dishName: 'Purple Haze Special Thakali Thali', quantity: 2, variant: 'Chicken Thali', price: 1100 },
-        { dishName: 'Steamed Chicken Momo', quantity: 1, variant: 'Kothey', price: 270 },
-        { dishName: 'Signature Purple Galaxy Mocktail', quantity: 1, price: 240 },
-      ],
-      notes: 'Extra spicy tomato achar please.',
-    },
-    {
-      id: 'PH261014B92X',
-      customer: 'Sushil Thapa',
-      phone: '9841537347',
-      email: 'sushil@example.com',
-      orderType: 'DINE_IN',
-      status: 'PLACED',
-      tableNumber: 'Garden Pergola 2',
-      subtotal: 2150,
-      deliveryFee: 0,
-      total: 2150,
-      createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-      items: [
-        { dishName: 'Wood-Fired Purple Haze Supreme Pizza', quantity: 2, variant: '12 inch Large', price: 1360 },
-        { dishName: 'Szechuan Chicken Hakka Chowmein', quantity: 1, price: 320 },
-        { dishName: 'Garden Fresh Mint & Lemon Mojito', quantity: 2, price: 380 },
-      ],
-    },
-    {
-      id: 'PH261014C49Q',
-      customer: 'Pooja Agrawal',
-      phone: '9802770202',
-      email: 'pooja@example.com',
-      orderType: 'PICKUP',
-      status: 'READY_FOR_PICKUP',
-      subtotal: 820,
-      deliveryFee: 0,
-      total: 820,
-      createdAt: new Date(Date.now() - 35 * 60000).toISOString(),
-      items: [
-        { dishName: 'Hyderabadi Dum Biryani (Mutton)', quantity: 1, price: 650 },
-        { dishName: 'Crispy Mustang Aloo Sandeko', quantity: 1, price: 220 },
-      ],
-    },
-  ])
+  // Web Audio chime generator
+  const playChime = () => {
+    if (!soundAlerts) return
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12) // A5
+      gain.gain.setValueAtTime(0.25, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.35)
+    } catch {}
+  }
+
+  // Fetch orders from API
+  const fetchOrders = async (manual = false) => {
+    if (manual) setRefreshing(true)
+    try {
+      const res = await fetch('/api/orders')
+      const data = await res.json()
+      if (data.success && Array.isArray(data.data)) {
+        const rawOrders = data.data
+
+        // Detect new incoming orders after initial load
+        if (!isFirstLoad.current && knownOrderIds.current.size > 0) {
+          const incomingNew = rawOrders.filter(
+            (o: any) => !knownOrderIds.current.has(o.orderNumber || o.id)
+          )
+          if (incomingNew.length > 0) {
+            playChime()
+            incomingNew.forEach((no: any) => {
+              const name = no.customer?.name || no.guestName || 'Guest'
+              const amt = no.pricing?.total || no.totalAmount || no.total || 0
+              toast.success(`🔔 New Order #${no.orderNumber || no.id} received!`, {
+                description: `${name} ordered for NPR ${amt}`,
+              })
+            })
+          }
+        }
+
+        // Update known IDs
+        rawOrders.forEach((o: any) => {
+          knownOrderIds.current.add(o.orderNumber || o.id)
+        })
+        isFirstLoad.current = false
+
+        // Normalize orders structure
+        const normalized = rawOrders.map((o: any) => {
+          const id = o.orderNumber || o.id
+          const customer = o.customer?.name || o.guestName || 'Valued Guest'
+          const phone = o.customer?.phone || o.guestPhone || ''
+          const email = o.customer?.email || o.guestEmail || ''
+          const orderType = o.orderType || 'DELIVERY'
+          const status = o.status || 'PLACED'
+          const total = o.pricing?.total || o.totalAmount || o.total || 0
+          const subtotal = o.pricing?.subtotal || o.subtotal || 0
+          const deliveryFee = o.pricing?.deliveryFee || o.deliveryFee || 0
+          const address = o.address || o.deliveryAddress
+          const addressStr = address
+            ? typeof address === 'string'
+              ? address
+              : `${address.street || ''}, ${address.area || ''}, ${address.city || ''}${
+                  address.landmark ? ` (Near ${address.landmark})` : ''
+                }`.replace(/^,\s*/, '')
+            : 'Airport Line, Biratnagar'
+          const items = Array.isArray(o.items)
+            ? o.items.map((it: any) => ({
+                dishName: it.dishName || it.name || 'Dish',
+                quantity: it.quantity || 1,
+                variant: it.variantName || it.variant || null,
+                price: it.totalPrice || it.unitPrice * (it.quantity || 1) || it.price || 0,
+              }))
+            : []
+          const notes = o.notes || o.orderNotes || ''
+
+          return {
+            id,
+            raw: o,
+            customer,
+            phone,
+            email,
+            orderType,
+            status,
+            deliveryAddress: addressStr,
+            tableNumber: o.tableNumber || 'Garden Area',
+            subtotal,
+            deliveryFee,
+            total,
+            createdAt: o.createdAt || new Date().toISOString(),
+            items,
+            notes,
+          }
+        })
+
+        setOrders(normalized)
+      }
+    } catch (err) {
+      console.warn('Could not fetch live orders:', err)
+    } finally {
+      setLoading(false)
+      if (manual) setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchOrders()
+    const interval = setInterval(() => fetchOrders(), 6000)
+    return () => clearInterval(interval)
+  }, [soundAlerts])
 
   const filtered = orders.filter((o) => {
     if (filterStatus !== 'all' && o.status !== filterStatus) return false
@@ -86,11 +159,30 @@ export default function AdminOrdersPage() {
     return true
   })
 
-  const updateStatus = (id: string, newStatus: string) => {
-    setOrders(
-      orders.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+  // Update order status live
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    // Optimistic UI update
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     )
-    toast.success(`Order ${id} marked as ${newStatus.replace(/_/g, ' ')}`)
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber: orderId, status: newStatus }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(`Order #${orderId} marked as ${newStatus.replace(/_/g, ' ')}`)
+      } else {
+        toast.error(data.error || 'Failed to update order status.')
+        fetchOrders()
+      }
+    } catch {
+      toast.error('Network error updating order.')
+      fetchOrders()
+    }
   }
 
   const printKitchenTicket = (order: any) => {
@@ -103,14 +195,28 @@ export default function AdminOrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-widest text-primary mb-1 block">
-            Kitchen & Delivery Flow
+            Kitchen &amp; Delivery Flow
           </span>
-          <h1 className="font-serif text-3xl font-bold text-foreground">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
             Live Orders Management
           </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Auto-refreshing every 6s • Active audio chime enabled
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchOrders(true)}
+            disabled={refreshing}
+            className="rounded-xl text-xs gap-1.5 border-border h-9"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -118,23 +224,25 @@ export default function AdminOrdersPage() {
               setSoundAlerts(!soundAlerts)
               toast.info(soundAlerts ? 'Sound alerts muted.' : 'Sound alerts enabled.')
             }}
-            className="rounded-xl text-xs gap-1.5 border-border"
+            className="rounded-xl text-xs gap-1.5 border-border h-9"
           >
             {soundAlerts ? (
               <>
-                <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> Sound Alert On
+                <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="hidden sm:inline">Chime</span> On
               </>
             ) : (
               <>
-                <VolumeX className="w-3.5 h-3.5 text-muted-foreground" /> Muted
+                <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="hidden sm:inline">Chime</span> Muted
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+      {/* Filter Tabs & Service Type Selector */}
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
         <div className="flex flex-wrap items-center gap-1.5">
           {['all', 'PLACED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED'].map((st) => (
             <button
@@ -156,7 +264,7 @@ export default function AdminOrdersPage() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="bg-card text-xs font-semibold text-foreground rounded-xl border border-border px-3 py-1.5 outline-none focus:border-primary"
+            className="w-full sm:w-auto bg-card text-xs font-semibold text-foreground rounded-xl border border-border px-3 py-1.5 outline-none focus:border-primary h-9"
           >
             <option value="all">All Service Types</option>
             <option value="DELIVERY">Delivery Only</option>
@@ -167,126 +275,179 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Orders Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((order) => (
-          <div
-            key={order.id}
-            className="bg-card border border-border rounded-3xl p-5 shadow-sm space-y-4 flex flex-col justify-between hover:border-primary/40 transition-colors"
-          >
-            <div>
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-border/70">
+      {loading ? (
+        <div className="p-16 text-center text-xs text-muted-foreground bg-card border border-border rounded-3xl">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary mb-2 opacity-60" />
+          Loading live orders from database &amp; kitchen queue...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="p-16 text-center text-xs text-muted-foreground bg-card border border-border rounded-3xl">
+          <ShoppingBag className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
+          <h3 className="font-bold text-foreground text-sm mb-1">No orders in this queue</h3>
+          <p className="text-muted-foreground max-w-sm mx-auto">
+            New customer orders submitted via checkout or payment gateway will show up here automatically with audio alerts.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {filtered.map((order) => {
+            const waUrl = getWhatsAppOrderUrl(order.raw || order)
+
+            return (
+              <div
+                key={order.id}
+                className="bg-card border border-border rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 flex flex-col justify-between hover:border-primary/40 transition-colors"
+              >
                 <div>
-                  <span className="font-mono text-base font-bold text-foreground block">
-                    {order.id}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {formatDateTime(order.createdAt)}
-                  </span>
+                  {/* Card Header: Order Number & Status Badge */}
+                  <div className="flex items-center justify-between pb-3 border-b border-border/70">
+                    <div>
+                      <span className="font-mono text-base font-bold text-foreground block">
+                        #{order.id}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatDateTime(order.createdAt)}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        order.status === 'PLACED'
+                          ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 animate-pulse'
+                          : order.status === 'PREPARING'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                          : order.status === 'DELIVERED' || order.status === 'COMPLETED'
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+                          : 'bg-primary/15 text-primary border border-primary/30'
+                      }`}
+                    >
+                      {order.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  {/* Customer, Phone & Delivery Info */}
+                  <div className="py-2.5 text-xs space-y-1">
+                    <p className="font-bold text-foreground">
+                      {order.customer} •{' '}
+                      <a href={`tel:${order.phone}`} className="font-normal text-primary hover:underline">
+                        {order.phone || 'No phone'}
+                      </a>
+                    </p>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      {order.orderType === 'DELIVERY'
+                        ? `📍 ${order.deliveryAddress}`
+                        : order.orderType === 'DINE_IN'
+                        ? `🍽️ Table: ${order.tableNumber}`
+                        : '🛍️ Takeaway Counter Pickup'}
+                    </p>
+                    {order.notes && (
+                      <p className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-medium leading-relaxed">
+                        Note: {order.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Items List */}
+                  <div className="pt-2 border-t border-border/60 space-y-1.5 text-xs">
+                    {order.items.map((it: any, i: number) => (
+                      <div key={i} className="flex justify-between items-start gap-2">
+                        <span className="leading-snug">
+                          <strong className="text-foreground">{it.quantity}x</strong> {it.dishName}
+                          {it.variant && (
+                            <span className="text-[10px] text-primary ml-1 font-medium">
+                              ({it.variant})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold text-foreground shrink-0">
+                          {formatPrice(it.price)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <span
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    order.status === 'PLACED'
-                      ? 'bg-red-500/10 text-red-600 animate-pulse'
-                      : order.status === 'PREPARING'
-                      ? 'bg-gold-500/10 text-gold-600'
-                      : order.status === 'DELIVERED'
-                      ? 'bg-emerald-500/10 text-emerald-600'
-                      : 'bg-primary/10 text-primary'
-                  }`}
-                >
-                  {order.status.replace(/_/g, ' ')}
-                </span>
-              </div>
-
-              {/* Customer & Location */}
-              <div className="py-2.5 text-xs space-y-1">
-                <p className="font-bold text-foreground">
-                  {order.customer} • <span className="font-normal text-muted-foreground">{order.phone}</span>
-                </p>
-                <p className="text-muted-foreground text-[11px]">
-                  {order.orderType === 'DELIVERY'
-                    ? `📍 ${order.deliveryAddress}`
-                    : order.orderType === 'DINE_IN'
-                    ? `🍽️ ${order.tableNumber}`
-                    : '🛍️ Takeaway Counter Pickup'}
-                </p>
-                {order.notes && (
-                  <p className="p-2 rounded-lg bg-gold-500/10 text-gold-800 dark:text-gold-300 text-[10px] font-medium">
-                    Note: {order.notes}
-                  </p>
-                )}
-              </div>
-
-              {/* Items List */}
-              <div className="pt-2 border-t border-border/60 space-y-1.5 text-xs">
-                {order.items.map((it: any, i: number) => (
-                  <div key={i} className="flex justify-between">
-                    <span>
-                      <strong className="text-foreground">{it.quantity}x</strong> {it.dishName}
-                      {it.variant && <span className="text-[10px] text-primary ml-1">({it.variant})</span>}
-                    </span>
-                    <span className="font-semibold">{formatPrice(it.price)}</span>
+                {/* Footer: WhatsApp Button, Total & Workflow Buttons */}
+                <div className="pt-3 border-t border-border space-y-2.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-medium">Grand Total:</span>
+                    <span className="text-base font-bold text-primary">{formatPrice(order.total)}</span>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Footer with status triggers and print */}
-            <div className="pt-3 border-t border-border space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Order Total:</span>
-                <span className="text-base font-bold text-primary">{formatPrice(order.total)}</span>
-              </div>
+                  {/* Direct WhatsApp to 9851150987 Button */}
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp Order to {ADMIN_WHATSAPP_NUMBER}</span>
+                  </a>
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {order.status === 'PLACED' && (
-                  <Button
-                    size="sm"
-                    onClick={() => updateStatus(order.id, 'PREPARING')}
-                    className="bg-primary hover:bg-primary-700 text-white rounded-xl text-xs h-9"
-                  >
-                    Accept & Cook
-                  </Button>
-                )}
-                {order.status === 'PREPARING' && (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      updateStatus(
-                        order.id,
-                        order.orderType === 'PICKUP' ? 'READY_FOR_PICKUP' : 'OUT_FOR_DELIVERY'
-                      )
-                    }
-                    className="bg-primary hover:bg-primary-700 text-white rounded-xl text-xs h-9"
-                  >
-                    Mark Ready
-                  </Button>
-                )}
-                {(order.status === 'OUT_FOR_DELIVERY' || order.status === 'READY_FOR_PICKUP') && (
-                  <Button
-                    size="sm"
-                    onClick={() => updateStatus(order.id, 'DELIVERED')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-9"
-                  >
-                    Complete Order
-                  </Button>
-                )}
+                  {/* Status Progression Actions */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {order.status === 'PLACED' && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus(order.id, 'PREPARING')}
+                        className="bg-primary hover:bg-primary-700 text-white rounded-xl text-xs h-9 font-semibold"
+                      >
+                        Accept &amp; Cook
+                      </Button>
+                    )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => printKitchenTicket(order)}
-                  className="rounded-xl text-xs h-9 border-border gap-1"
-                >
-                  <Printer className="w-3.5 h-3.5" /> Ticket
-                </Button>
+                    {order.status === 'PREPARING' && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          updateStatus(
+                            order.id,
+                            order.orderType === 'DELIVERY' ? 'OUT_FOR_DELIVERY' : 'READY_FOR_PICKUP'
+                          )
+                        }
+                        className="bg-amber-500 hover:bg-amber-600 text-charcoal-950 rounded-xl text-xs h-9 font-bold"
+                      >
+                        {order.orderType === 'DELIVERY' ? 'Dispatch Rider' : 'Ready for Counter'}
+                      </Button>
+                    )}
+
+                    {(order.status === 'OUT_FOR_DELIVERY' || order.status === 'READY_FOR_PICKUP') && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus(order.id, 'DELIVERED')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-9 font-semibold"
+                      >
+                        Mark Delivered
+                      </Button>
+                    )}
+
+                    {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateStatus(order.id, 'CANCELLED')}
+                        className="rounded-xl text-xs h-9 text-rose-600 border-rose-500/30 hover:bg-rose-500/10"
+                      >
+                        Cancel
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => printKitchenTicket(order)}
+                      className="rounded-xl text-xs h-9 gap-1.5 border-border hover:bg-muted"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Print Ticket
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

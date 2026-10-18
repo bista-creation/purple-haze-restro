@@ -135,7 +135,7 @@ export default function AdminMenuPage() {
     try {
       const res = await fetch('/api/menu', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-role': role },
         body: JSON.stringify({ id: dish.id, action: 'toggle-stock' }),
       })
       const data = await res.json()
@@ -168,7 +168,7 @@ export default function AdminMenuPage() {
     try {
       const res = await fetch('/api/menu', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-role': role },
         body: JSON.stringify({ id: dish.id, action: 'toggle-featured' }),
       })
       const data = await res.json()
@@ -201,7 +201,7 @@ export default function AdminMenuPage() {
     try {
       const res = await fetch('/api/menu', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-role': role },
         body: JSON.stringify({
           id: editingDish.id,
           name: editingDish.name,
@@ -249,7 +249,7 @@ export default function AdminMenuPage() {
 
       const res = await fetch('/api/menu', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-role': role },
         body: JSON.stringify({
           name: newDish.name,
           price: Number(newDish.price),
@@ -302,6 +302,7 @@ export default function AdminMenuPage() {
     try {
       const res = await fetch(`/api/menu?id=${deleteConfirmDish.id}`, {
         method: 'DELETE',
+        headers: { 'x-admin-role': role },
       })
       const data = await res.json()
       if (data.success) {
