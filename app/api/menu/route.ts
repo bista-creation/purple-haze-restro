@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const categoryId = searchParams.get('categoryId')
     const search = searchParams.get('search')?.toLowerCase()
 
-    let dishes = getAllDishes()
+    let dishes = await getAllDishes()
 
     if (categoryId && categoryId !== 'all') {
       dishes = dishes.filter(
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const created = addDish({
+    const created = await addDish({
       name: body.name,
       price: Number(body.price),
       categoryId: body.categoryId,
@@ -124,7 +124,7 @@ export async function PUT(request: Request) {
 
     // Quick action: Stock toggle (allowed for both STAFF and ADMIN)
     if (action === 'toggle-stock') {
-      const toggled = toggleDishAvailability(id)
+      const toggled = await toggleDishAvailability(id)
       if (!toggled) {
         return NextResponse.json({ success: false, error: 'Dish not found.' }, { status: 404 })
       }
@@ -133,12 +133,12 @@ export async function PUT(request: Request) {
 
     // Quick action: Featured toggle
     if (action === 'toggle-featured') {
-      const toggled = toggleDishFeatured(id)
+      const toggled = await toggleDishFeatured(id)
       return NextResponse.json({ success: true, dish: toggled })
     }
 
     // Full dish update: Editing name, picture, price, etc.
-    const updated = updateDish(id, updates)
+    const updated = await updateDish(id, updates)
     if (!updated) {
       return NextResponse.json({ success: false, error: 'Dish not found.' }, { status: 404 })
     }
@@ -169,7 +169,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'Dish ID is required.' }, { status: 400 })
     }
 
-    const deleted = deleteDish(id)
+    const deleted = await deleteDish(id)
     if (!deleted) {
       return NextResponse.json({ success: false, error: 'Dish not found.' }, { status: 404 })
     }

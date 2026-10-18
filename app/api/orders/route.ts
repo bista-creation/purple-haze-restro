@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma'
 import { generateOrderNumber } from '@/lib/utils'
 import { sendOrderPlacedEmail } from '@/lib/email'
 import { sendWhatsAppOrderAlert, getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
+import { DISHES_DATA } from '@/lib/data/restaurant-data'
+import { ensureDbMenuInitialized } from '@/lib/data/menu-store'
 import fs from 'fs'
 import path from 'path'
 
@@ -16,7 +18,7 @@ function ensureDataDir() {
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     } catch {
-      // Ignore
+      // Ignore read-only filesystem in serverless environments
     }
   }
 }
@@ -49,7 +51,58 @@ function saveOrderToFile(order: any) {
     }
     fs.writeFileSync(ORDERS_FILE, JSON.stringify(list.slice(0, 300), null, 2), 'utf-8')
   } catch {
-    // Ignore write errors
+    // Ignore write errors in serverless environments
+  }
+}
+
+async function ensureDishesExistForOrder(items: any[]) {
+  try {
+    await ensureDbMenuInitialized()
+
+    let defaultCat = await prisma.category.findFirst()
+    if (!defaultCat) {
+      defaultCat = await prisma.category.create({
+        data: {
+          id: 'cat-nepali',
+          name: 'Nepali Classics',
+          slug: 'nepali',
+          cuisine: 'nepali',
+        },
+      })
+    }
+
+    for (const item of items) {
+      const dishId = item.dishId || item.id || `dish-${Date.now()}`
+      item.dishId = dishId
+
+      const existingDish = await prisma.dish.findUnique({
+        where: { id: dishId },
+      })
+
+      if (!existingDish) {
+        const localDish = DISHES_DATA.find((d) => d.id === dishId)
+        let catId = localDish?.categoryId || defaultCat.id
+        const catExists = await prisma.category.findUnique({ where: { id: catId } })
+        if (!catExists) {
+          catId = defaultCat.id
+        }
+
+        await prisma.dish.create({
+          data: {
+            id: dishId,
+            name: item.dishName || localDish?.name || 'Chef Special Dish',
+            slug: `${(item.dishName || 'dish').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substring(2, 6)}`,
+            description: localDish?.description || '',
+            price: Number(item.unitPrice || localDish?.price || 100),
+            image: localDish?.image || '/images/food-presentation.jpg',
+            categoryId: catId,
+            isAvailable: true,
+          },
+        })
+      }
+    }
+  } catch (err) {
+    console.warn('[Orders] ensureDishesExistForOrder warning:', err)
   }
 }
 
@@ -78,8 +131,11 @@ export async function POST(req: Request) {
 
     const orderNumber = generateOrderNumber()
 
+    // 1. Ensure foreign key dishes exist in PostgreSQL database
+    await ensureDishesExistForOrder(items)
+
     try {
-      // Try database transaction
+      // 2. Insert into PostgreSQL (Neon)
       const order = await prisma.order.create({
         data: {
           orderNumber,
@@ -89,23 +145,25 @@ export async function POST(req: Request) {
           orderType: orderType || 'DELIVERY',
           status: 'PLACED',
           notes: orderNotes || null,
-          subtotal: pricing?.subtotal || 0,
-          deliveryFee: pricing?.deliveryFee || 0,
-          taxAmount: pricing?.tax || 0,
-          discountAmount: pricing?.discount || 0,
-          totalAmount: pricing?.total || 0,
+          subtotal: Number(pricing?.subtotal || 0),
+          deliveryFee: Number(pricing?.deliveryFee || 0),
+          taxAmount: Number(pricing?.tax || 0),
+          discountAmount: Number(pricing?.discount || 0),
+          totalAmount: Number(pricing?.total || 0),
           deliveryAddress: address || null,
           estimatedTime: 35,
           items: {
             create: items.map((item: any) => ({
-              dishId: item.dishId || 'demo-dish',
+              dishId: item.dishId,
               dishName: item.dishName || 'Dish',
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
+              quantity: Number(item.quantity) || 1,
+              unitPrice: Number(item.unitPrice) || 0,
               variantName: item.variantName || null,
               selectedAddOns: item.selectedAddOns || [],
               specialNote: item.specialNote || null,
-              totalPrice: item.totalPrice || item.unitPrice * item.quantity,
+              totalPrice:
+                Number(item.totalPrice) ||
+                (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
             })),
           },
           statusHistory: {
@@ -118,7 +176,7 @@ export async function POST(req: Request) {
             create: {
               method: paymentMethod || 'CASH_ON_DELIVERY',
               status: paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PAID',
-              amount: pricing?.total || 0,
+              amount: Number(pricing?.total || 0),
               gatewayRef: paymentMethod !== 'CASH_ON_DELIVERY' ? `TXN-${Date.now()}` : null,
             },
           },
@@ -185,9 +243,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ success: true, data: order, whatsAppUrl }, { status: 201 })
     } catch (dbError) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('[Orders] Database write fallback triggered:', dbError)
-      }
+      console.warn('[Orders] Database write fallback triggered:', dbError)
+
       // DB offline fallback — generate a persistent fallback order
       const fallbackOrder = {
         id: 'ord_' + Math.random().toString(36).substring(2, 9),
@@ -218,11 +275,11 @@ export async function POST(req: Request) {
           method: paymentMethod || 'CASH_ON_DELIVERY',
           status: paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PAID',
           amount: pricing?.total || 0,
+          gatewayRef: paymentMethod !== 'CASH_ON_DELIVERY' ? `TXN-${Date.now()}` : null,
         },
         status: 'PLACED',
         deliveryAddress: address || null,
         notes: orderNotes || null,
-        estimatedTime: 35,
         createdAt: new Date().toISOString(),
       }
 
@@ -235,6 +292,7 @@ export async function POST(req: Request) {
         console.warn('[WhatsApp Notification Error]:', waErr)
       }
 
+      // Dispatch order confirmation email (awaited)
       if (customer?.email) {
         try {
           await sendOrderPlacedEmail({
@@ -266,9 +324,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, data: fallbackOrder, whatsAppUrl }, { status: 200 })
     }
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('[Orders] Order creation error:', error)
-    }
+    console.error('[Orders] Order creation error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to place order. Please try again.' },
       { status: 500 }
@@ -311,19 +367,20 @@ export async function GET(req: Request) {
   // Listing all orders
   try {
     const orders = await prisma.order.findMany({
-      include: { items: true, payment: true },
+      include: {
+        items: true,
+        payment: true,
+        statusHistory: { orderBy: { createdAt: 'desc' } },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
-    if (orders && orders.length > 0) {
-      return NextResponse.json({ success: true, data: orders })
-    }
+    return NextResponse.json({ success: true, data: orders })
   } catch (error) {
-    // Database offline, load from file store
+    console.warn('[Orders] Prisma findMany fallback to local file store:', error)
   }
 
   const localOrders = loadOrdersFromFile()
-  // Ensure ordered by createdAt descending
   localOrders.sort(
     (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   )
@@ -353,6 +410,19 @@ export async function PUT(req: Request) {
         },
         include: { items: true, payment: true },
       })
+
+      if (status) {
+        await prisma.orderStatusHistory
+          .create({
+            data: {
+              orderId: updated.id,
+              status,
+              note: `Status updated to ${status} via Admin Dashboard`,
+            },
+          })
+          .catch(() => {})
+      }
+
       saveOrderToFile(updated)
       return NextResponse.json({ success: true, data: updated })
     } catch {
@@ -376,7 +446,10 @@ export async function PUT(req: Request) {
       updatedAt: new Date().toISOString(),
     }
 
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(localOrders, null, 2), 'utf-8')
+    try {
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify(localOrders, null, 2), 'utf-8')
+    } catch {}
+
     return NextResponse.json({ success: true, data: localOrders[index] })
   } catch (err: any) {
     return NextResponse.json(

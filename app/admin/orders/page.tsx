@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   ShoppingBag,
   Filter,
@@ -35,7 +35,7 @@ export default function AdminOrdersPage() {
   const isFirstLoad = useRef(true)
 
   // Web Audio chime generator
-  const playChime = () => {
+  const playChime = useCallback(() => {
     if (!soundAlerts) return
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
@@ -55,10 +55,10 @@ export default function AdminOrdersPage() {
       osc.start()
       osc.stop(ctx.currentTime + 0.35)
     } catch {}
-  }
+  }, [soundAlerts])
 
   // Fetch orders from API
-  const fetchOrders = async (manual = false) => {
+  const fetchOrders = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true)
     try {
       const res = await fetch('/api/orders')
@@ -145,13 +145,13 @@ export default function AdminOrdersPage() {
       setLoading(false)
       if (manual) setRefreshing(false)
     }
-  }
+  }, [playChime])
 
   useEffect(() => {
     fetchOrders()
     const interval = setInterval(() => fetchOrders(), 6000)
     return () => clearInterval(interval)
-  }, [soundAlerts])
+  }, [fetchOrders])
 
   const filtered = orders.filter((o) => {
     if (filterStatus !== 'all' && o.status !== filterStatus) return false

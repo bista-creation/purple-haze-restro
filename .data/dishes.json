@@ -1,5 +1,30 @@
 [
   {
+    "id": "dish-1792350046096-ctfl3",
+    "name": "test",
+    "slug": "test",
+    "description": "",
+    "price": 350,
+    "categoryId": "cat-nepali",
+    "category": {
+      "id": "cat-nepali",
+      "name": "Nepali Classics",
+      "slug": "nepali",
+      "cuisine": "nepali"
+    },
+    "image": "/images/dishes/dish-dish-1792350046096-ctfl3-1792350046099.jpg",
+    "isVeg": true,
+    "spicyLevel": 1,
+    "isAvailable": true,
+    "isFeatured": false,
+    "isPopular": false,
+    "preparationTime": 20,
+    "tags": [
+      "Chef Special",
+      "Popular"
+    ]
+  },
+  {
     "id": "dish-1792348166583-f0q4v",
     "name": "Biratnagar Special Chicken Sekuwa",
     "slug": "biratnagar-special-chicken-sekuwa",

@@ -18,6 +18,8 @@ import {
   Menu,
   MessageCircle,
   Volume2,
+  Database,
+  RefreshCw,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -53,6 +55,26 @@ export function AdminHeader({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0)
+  const [syncingDb, setSyncingDb] = useState(false)
+
+  const handleSyncDb = async () => {
+    try {
+      setSyncingDb(true)
+      const res = await fetch('/api/admin/sync-db', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Neon PostgreSQL Synced!', {
+          description: `${data.stats.totalDishes} Dishes, ${data.stats.totalCategories} Categories, ${data.stats.totalOrders} Orders ready.`,
+        })
+      } else {
+        toast.error(data.error || 'Database sync failed')
+      }
+    } catch {
+      toast.error('Could not reach server to sync database.')
+    } finally {
+      setSyncingDb(false)
+    }
+  }
 
   const role = (propRole || session?.user?.role || 'ADMIN') as 'ADMIN' | 'STAFF'
   const name = propName || session?.user?.name || (role === 'ADMIN' ? 'Administrator' : 'Kitchen Staff')
@@ -211,6 +233,21 @@ export function AdminHeader({
           </a>
         </Button>
 
+        {/* Sync Neon DB (Admin only) */}
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncDb}
+            disabled={syncingDb}
+            className="hidden lg:flex items-center gap-1.5 h-9 rounded-xl border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 text-xs font-semibold"
+            title="Populate and verify Neon PostgreSQL database catalog"
+          >
+            <Database className={`w-3.5 h-3.5 text-purple-500 ${syncingDb ? 'animate-spin' : ''}`} />
+            <span className="hidden xl:inline">{syncingDb ? 'Syncing...' : 'Sync Neon DB'}</span>
+          </Button>
+        )}
+
         {/* Role Badge in Header */}
         <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-muted border border-border text-xs font-bold">
           {isAdmin ? (
@@ -343,6 +380,17 @@ export function AdminHeader({
                 <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground" />
               </Link>
             </DropdownMenuItem>
+
+            {isAdmin && (
+              <DropdownMenuItem
+                onClick={handleSyncDb}
+                disabled={syncingDb}
+                className="rounded-xl cursor-pointer text-xs my-1 flex items-center justify-between text-purple-600 dark:text-purple-400 font-semibold"
+              >
+                <span>{syncingDb ? 'Syncing with Neon...' : 'Sync Neon Database'}</span>
+                <Database className={`w-3.5 h-3.5 ${syncingDb ? 'animate-spin' : ''}`} />
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuSeparator />
 

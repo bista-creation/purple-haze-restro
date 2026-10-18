@@ -11,9 +11,8 @@ function getDatabaseUrl(): string | undefined {
 
   if (!url) return undefined
 
-  // Clean parameters and convert pooler to direct connection if needed
+  // Strip channel_binding (unsupported in Prisma) and normalize pooler to direct connection if needed
   url = url
-    .replace('ep-nameless-grass-a11hnshj-pooler.', 'ep-nameless-grass-a11hnshj.')
     .replace('-pooler.', '.')
     .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
     .replace(/[?&]$/, '')
