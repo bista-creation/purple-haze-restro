@@ -19,6 +19,7 @@ import {
   ChefHat,
   Crown,
   UserCog,
+  BarChart3,
   X,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
@@ -87,6 +88,15 @@ export function AdminSidebar({
       icon: UserCog,
       badge: 'Access',
       badgeColor: 'bg-amber-500 text-charcoal-950',
+      adminOnly: true,
+      roles: ['ADMIN'],
+    },
+    {
+      href: '/admin/reports',
+      label: 'Reports & Analytics',
+      icon: BarChart3,
+      badge: 'Audited',
+      badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
       adminOnly: true,
       roles: ['ADMIN'],
     },

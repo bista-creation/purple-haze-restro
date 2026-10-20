@@ -52,9 +52,9 @@ function LoginForm() {
         return
       }
 
-      const role = cleanEmail.includes('admin')
+      const role = cleanEmail === 'admin@purplehaze.com'
         ? 'ADMIN'
-        : cleanEmail.includes('staff')
+        : cleanEmail === 'staff@purplehaze.com'
         ? 'STAFF'
         : 'CUSTOMER'
 
@@ -62,15 +62,21 @@ function LoginForm() {
         localStorage.setItem('user_session', JSON.stringify({ email: cleanEmail, role }))
       }
 
-      if (callbackUrl && (role === 'ADMIN' || role === 'STAFF')) {
+      const isSafeRelativeUrl =
+        callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//')
+
+      if (isSafeRelativeUrl && (role === 'ADMIN' || role === 'STAFF')) {
         toast.success(`Welcome to Purple Haze Portal!`)
         router.push(callbackUrl)
-      } else if (cleanEmail === 'admin@purplehaze.com' || cleanEmail.includes('admin')) {
+      } else if (role === 'ADMIN') {
         toast.success('Welcome back, Admin!')
         router.push('/admin')
-      } else if (cleanEmail === 'staff@purplehaze.com' || cleanEmail.includes('staff')) {
+      } else if (role === 'STAFF') {
         toast.success('Welcome back, Staff!')
         router.push('/admin/orders')
+      } else if (isSafeRelativeUrl) {
+        toast.success('Welcome back!')
+        router.push(callbackUrl)
       } else {
         toast.success('Welcome back!')
         router.push('/profile')

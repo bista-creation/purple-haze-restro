@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
     }
 
     const lastMessage = messages[messages.length - 1]
-    const userQuery = lastMessage?.content || ''
+    const userQuery = String(lastMessage?.content || '').slice(0, 1000).trim()
 
-    if (!userQuery.trim()) {
+    if (!userQuery) {
       return NextResponse.json(
         { reply: 'Please ask a question so I can assist you!' },
         { status: 200 }

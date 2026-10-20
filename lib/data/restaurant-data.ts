@@ -5,13 +5,27 @@ export const RESTAURANT_INFO = {
   tagline: 'Flavors Under the Open Sky',
   shortDesc: 'Fusion cuisine blending Nepali heritage, rich Indian spices, authentic Chinese woks, and rustic continental favorites in Biratnagar’s premier garden setting.',
   address: 'Airport Line, Airport Road, Biratnagar - 4, Morang, Koshi Province, Nepal',
+  landmark: 'Airport Line, 2 minutes from Biratnagar Domestic Airport',
   phones: ['+977 21-464193', '+977 21-465192', '+977 9852022202', '+977 9841537347'],
+  // Public customer hotline for reservations, inquiries, and orders
   primaryPhone: '+977 9852022202',
+  landline: '+977 21-464193',
+  // Internal operations/management WhatsApp alert number (for kitchen order dispatches)
+  adminAlertPhone: '+977 9851150987',
   email: 'contact@purplehazerestro.com',
   openingHours: [
     { days: 'Sunday - Thursday', hours: '10:00 AM - 10:00 PM' },
     { days: 'Friday - Saturday', hours: '10:00 AM - 11:00 PM' },
   ],
+  maps: {
+    embedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3571.932971556942!2d87.26901237618991!3d26.452140476924844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39ef74415822e1b1%3A0xb3551ec9eaee3a65!2sBiratnagar%2C%20Nepal!5e0!3m2!1sen!2snp!4v1700000000000!5m2!1sen!2snp',
+    directionsUrl: 'https://maps.google.com/?q=Purple+Haze+Restro+Biratnagar+Nepal',
+    coordinates: { lat: 26.45214, lng: 87.26901 },
+  },
+  paymentMethods: {
+    onlineGateways: ['eSewa ePay v2', 'Khalti ePayment v2'],
+    counter: ['Cash on Delivery', 'Fonepay Dynamic QR (Counter)'],
+  },
   socials: {
     facebook: 'https://www.facebook.com/purplehaze.biratnagar',
     instagram: 'https://www.instagram.com/purplehaze.brt',

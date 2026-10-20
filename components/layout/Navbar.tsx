@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { RESTAURANT_INFO } from '@/lib/data/restaurant-data'
+import { isRestaurantOpen } from '@/lib/utils'
 
 export function Navbar() {
   const pathname = usePathname()
@@ -155,7 +156,14 @@ export function Navbar() {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-purple-200">Open Today: 10:00 AM - 10:00 PM</span>
+            <span className="inline-flex items-center gap-1.5 text-purple-200">
+              <span className={`w-2 h-2 rounded-full ${mounted && isRestaurantOpen() ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {mounted && !isRestaurantOpen()
+                ? 'Closed · Reopens 10:00 AM'
+                : mounted && [5, 6].includes(new Date().getDay())
+                ? 'Open Today: 10:00 AM – 11:00 PM'
+                : 'Open Today: 10:00 AM – 10:00 PM'}
+            </span>
             <span className="text-purple-400">|</span>
             <Link
               href="/track-order"

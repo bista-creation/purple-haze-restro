@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { generateOrderNumber } from '@/lib/utils'
 import { sendOrderPlacedEmail } from '@/lib/email'
 import { sendWhatsAppOrderAlert, getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
@@ -332,39 +333,121 @@ export async function POST(req: Request) {
   }
 }
 
+function maskPii(val?: string | null): string {
+  if (!val) return ''
+  const trimmed = val.trim()
+  if (trimmed.length <= 4) return '***'
+  const visibleStart = trimmed.slice(0, 2)
+  const visibleEnd = trimmed.slice(-2)
+  return `${visibleStart}****${visibleEnd}`
+}
+
+function sanitizeOrderForPublic(order: any) {
+  if (!order || typeof order !== 'object') return order
+
+  const safe = { ...order }
+  if (safe.customer) {
+    safe.customer = {
+      name: maskPii(safe.customer.name),
+      phone: maskPii(safe.customer.phone),
+      email: maskPii(safe.customer.email),
+    }
+  }
+  if (safe.guestName) safe.guestName = maskPii(safe.guestName)
+  if (safe.guestPhone) safe.guestPhone = maskPii(safe.guestPhone)
+  if (safe.guestEmail) safe.guestEmail = maskPii(safe.guestEmail)
+
+  // Mask exact street address while keeping neighborhood/city for tracking context
+  if (safe.deliveryAddress && typeof safe.deliveryAddress === 'object') {
+    safe.deliveryAddress = {
+      area: safe.deliveryAddress.area || 'Biratnagar',
+      city: safe.deliveryAddress.city || 'Biratnagar',
+      street: '*** Address Confirmed on File ***',
+    }
+  }
+  return safe
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const orderNumber = searchParams.get('orderNumber')
+  const phone = searchParams.get('phone')?.trim()
+
+  const session = await auth().catch(() => null)
+  const isStaffOrAdmin =
+    session?.user && (session.user.role === 'ADMIN' || session.user.role === 'STAFF')
 
   if (orderNumber) {
+    let order: any = null
+
     // 1. Try Prisma first
     try {
-      const order = await prisma.order.findUnique({
+      order = await prisma.order.findUnique({
         where: { orderNumber },
-        include: { items: true, payment: true, statusHistory: true },
+        include: { items: true, payment: true, statusHistory: { orderBy: { createdAt: 'desc' } } },
       })
-      if (order) {
-        return NextResponse.json({ success: true, data: order })
-      }
     } catch {
       // Prisma offline, proceed to file store
     }
 
     // 2. Check file store fallback
-    const localOrders = loadOrdersFromFile()
-    const found = localOrders.find(
-      (o) =>
-        o.orderNumber?.toUpperCase() === orderNumber.toUpperCase() ||
-        o.id?.toUpperCase() === orderNumber.toUpperCase()
-    )
-    if (found) {
-      return NextResponse.json({ success: true, data: found })
+    if (!order) {
+      const localOrders = loadOrdersFromFile()
+      order = localOrders.find(
+        (o) =>
+          o.orderNumber?.toUpperCase() === orderNumber.toUpperCase() ||
+          o.id?.toUpperCase() === orderNumber.toUpperCase()
+      )
     }
 
-    return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
+    if (!order) {
+      return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
+    }
+
+    // Authorization & IDOR protection:
+    // 1. Admin or Staff -> Full access
+    if (isStaffOrAdmin) {
+      return NextResponse.json({ success: true, data: order })
+    }
+
+    // 2. Authenticated customer who placed the order -> Full access
+    const userEmail = session?.user?.email?.toLowerCase()
+    const userId = session?.user?.id
+    const isOwner =
+      Boolean(userId && order.userId === userId) ||
+      Boolean(userEmail && (
+        (order.guestEmail && order.guestEmail.toLowerCase() === userEmail) ||
+        (order.customer?.email && order.customer.email.toLowerCase() === userEmail)
+      ))
+
+    if (isOwner) {
+      return NextResponse.json({ success: true, data: order })
+    }
+
+    // 3. Guest tracking with phone number verification
+    const orderPhone = (order.guestPhone || order.customer?.phone || '').replace(/[^0-9]/g, '')
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '')
+    const phoneMatches =
+      cleanPhone.length >= 4 &&
+      (orderPhone.endsWith(cleanPhone) || orderPhone === cleanPhone)
+
+    if (phoneMatches) {
+      return NextResponse.json({ success: true, data: order })
+    }
+
+    // 4. Default: Return order with customer PII masked to prevent harvesting customer identities
+    const sanitized = sanitizeOrderForPublic(order)
+    return NextResponse.json({ success: true, data: sanitized, piiMasked: true })
   }
 
-  // Listing all orders
+  // Listing all orders: Strictly requires ADMIN or STAFF clearance
+  if (!isStaffOrAdmin) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized. Staff or Admin privilege required to view order queue.' },
+      { status: 403 }
+    )
+  }
+
   try {
     const orders = await prisma.order.findMany({
       include: {
@@ -389,6 +472,14 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Kitchen staff or Admin privileges required to update orders.' },
+        { status: 403 }
+      )
+    }
+
     const body = await req.json()
     const { id, orderNumber, status, estimatedTime, notes } = body
 
@@ -398,6 +489,8 @@ export async function PUT(req: Request) {
         { status: 400 }
       )
     }
+
+    const updaterName = session.user.name || session.user.email || 'Kitchen Staff'
 
     // Update in Prisma if possible
     try {
@@ -417,7 +510,8 @@ export async function PUT(req: Request) {
             data: {
               orderId: updated.id,
               status,
-              note: `Status updated to ${status} via Admin Dashboard`,
+              note: `Status updated to ${status} by ${updaterName}`,
+              updatedBy: session.user.id || updaterName,
             },
           })
           .catch(() => {})
@@ -444,6 +538,7 @@ export async function PUT(req: Request) {
       ...(estimatedTime ? { estimatedTime: Number(estimatedTime) } : {}),
       ...(notes ? { notes } : {}),
       updatedAt: new Date().toISOString(),
+      lastUpdatedBy: updaterName,
     }
 
     try {

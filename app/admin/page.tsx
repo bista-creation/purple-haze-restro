@@ -40,6 +40,8 @@ export default function AdminOverviewPage() {
   const [totalCatalogDishes, setTotalCatalogDishes] = useState<number>(24)
   const [orders, setOrders] = useState<any[]>([])
   const [loadingOrders, setLoadingOrders] = useState(true)
+  const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'all'>('all')
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>('')
 
   useEffect(() => {
     let activeRole: 'ADMIN' | 'STAFF' = (session?.user?.role as any) || 'ADMIN'
@@ -80,6 +82,14 @@ export default function AdminOverviewPage() {
       .then((data) => {
         if (data.success && Array.isArray(data.data)) {
           setOrders(data.data)
+          setLastRefreshedAt(
+            new Date().toLocaleTimeString('en-US', {
+              timeZone: 'Asia/Kathmandu',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            }) + ' NPT'
+          )
         }
       })
       .catch((err) => {
@@ -96,22 +106,55 @@ export default function AdminOverviewPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Calculate dynamic metrics from real orders
-  const totalRevenue = orders.reduce((acc, o) => {
-    const val = o.pricing?.total || o.totalAmount || o.total || 0
-    return acc + Number(val)
-  }, 0)
+  // Filter orders by date range
+  const now = new Date()
+  const filteredOrders = orders.filter((o) => {
+    if (dateRange === 'all') return true
+    const oDate = new Date(o.createdAt || o.updatedAt || 0)
+    if (isNaN(oDate.getTime())) return true
+    const diffMs = now.getTime() - oDate.getTime()
+    if (dateRange === 'today') {
+      return (
+        oDate.getDate() === now.getDate() &&
+        oDate.getMonth() === now.getMonth() &&
+        oDate.getFullYear() === now.getFullYear()
+      )
+    }
+    if (dateRange === '7d') return diffMs <= 7 * 24 * 60 * 60 * 1000
+    if (dateRange === '30d') return diffMs <= 30 * 24 * 60 * 60 * 1000
+    return true
+  })
 
-  const activeOrdersCount = orders.filter(
-    (o) => o.status === 'PLACED' || o.status === 'PREPARING'
+  // Calculate dynamic metrics strictly from real orders in selected date range
+  // Net fulfilled sales excludes cancelled orders
+  const netFulfilledRevenue = filteredOrders
+    .filter((o) => o.status === 'DELIVERED' || o.status === 'COMPLETED')
+    .reduce((acc, o) => {
+      const val = o.pricing?.total || o.totalAmount || o.total || 0
+      return acc + Number(val)
+    }, 0)
+
+  // Gross active volume (including all confirmed & preparing tickets, excluding cancelled)
+  const grossActiveRevenue = filteredOrders
+    .filter((o) => o.status !== 'CANCELLED')
+    .reduce((acc, o) => {
+      const val = o.pricing?.total || o.totalAmount || o.total || 0
+      return acc + Number(val)
+    }, 0)
+
+  // Kitchen queue: all orders in preparation/delivery pipeline
+  const activeOrdersCount = filteredOrders.filter((o) =>
+    ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'].includes(o.status)
   ).length
 
-  const completedOrdersCount = orders.filter(
+  const completedOrdersCount = filteredOrders.filter(
     (o) => o.status === 'DELIVERED' || o.status === 'COMPLETED'
   ).length
 
+  const cancelledOrdersCount = filteredOrders.filter((o) => o.status === 'CANCELLED').length
+
   // Live recent orders (top 6)
-  const recentOrders = orders.slice(0, 6).map((o) => {
+  const recentOrders = filteredOrders.slice(0, 6).map((o) => {
     const id = o.orderNumber || o.id
     const customer = o.customer?.name || o.guestName || 'Valued Guest'
     const phone = o.customer?.phone || o.guestPhone || ''
@@ -133,13 +176,47 @@ export default function AdminOverviewPage() {
     }
   })
 
-  const topDishes = [
+  // Dynamically calculate dish rankings from real order item records
+  const dishSalesMap = new Map<string, { name: string; sold: number; revenue: number; category: string }>()
+  for (const ord of filteredOrders) {
+    if (ord.status === 'CANCELLED') continue
+    if (Array.isArray(ord.items)) {
+      for (const it of ord.items) {
+        const dishName = it.dishName || it.name || 'Special Dish'
+        const qty = Number(it.quantity) || 1
+        const lineTotal = Number(it.totalPrice) || (Number(it.unitPrice) || 0) * qty
+        const existing = dishSalesMap.get(dishName)
+        if (existing) {
+          existing.sold += qty
+          existing.revenue += lineTotal
+        } else {
+          dishSalesMap.set(dishName, {
+            name: dishName,
+            sold: qty,
+            revenue: lineTotal,
+            category: it.variantName || 'Kitchen Order',
+          })
+        }
+      }
+    }
+  }
+
+  const liveRankedDishes = Array.from(dishSalesMap.values())
+    .sort((a, b) => b.sold - a.sold)
+    .slice(0, 5)
+
+  const isLiveDishData = liveRankedDishes.length > 0
+
+  // Benchmark reference profiles shown only when no live dish items have been ordered yet
+  const benchmarkDishes = [
     { name: 'Purple Haze Special Thakali Thali', sold: 184, revenue: 101200, category: 'Nepali' },
     { name: 'Steamed & Kothey Chicken Momo', sold: 242, revenue: 58080, category: 'Nepali' },
     { name: 'Old Delhi Butter Chicken', sold: 112, revenue: 54880, category: 'Indian' },
     { name: 'Wood-Fired Supreme Pizza', sold: 76, revenue: 51680, category: 'Italian' },
     { name: 'Signature Purple Galaxy Mocktail', sold: 198, revenue: 47520, category: 'Beverages' },
   ]
+
+  const displayDishes = isLiveDishData ? liveRankedDishes : benchmarkDishes
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -230,20 +307,64 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
+      {/* Live Data Controls & Data Freshness Toolbar */}
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-muted-foreground mr-1">Time Period:</span>
+          {(['today', '7d', '30d', 'all'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setDateRange(r)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                dateRange === r
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+              }`}
+            >
+              {r === 'today' ? 'Today' : r === '7d' ? 'Last 7 Days' : r === '30d' ? 'Last 30 Days' : 'All Time'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            {lastRefreshedAt ? `Fresh as of ${lastRefreshedAt}` : 'Neon DB Connected'}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={loadLiveOrders}
+            className="h-8 px-2.5 rounded-lg text-xs gap-1 hover:bg-muted"
+            title="Refresh Live Metrics"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingOrders ? 'animate-spin text-primary' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Total Orders */}
         <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-              Total Order Volume
+              Order Volume
             </span>
             <p className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
-              {orders.length} Orders
+              {filteredOrders.length} Orders
             </p>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-2">
-              <CheckCircle2 className="w-3.5 h-3.5" /> {completedOrdersCount} fulfilled
-            </span>
+            <div className="flex items-center gap-2 mt-2 flex-wrap text-[11px]">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" /> {completedOrdersCount} fulfilled
+              </span>
+              {cancelledOrdersCount > 0 && (
+                <span className="text-destructive font-medium">
+                  • {cancelledOrdersCount} cancelled
+                </span>
+              )}
+            </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <ShoppingBag className="w-6 h-6" />
@@ -254,13 +375,13 @@ export default function AdminOverviewPage() {
         <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-              Kitchen Queue
+              Kitchen Pipeline
             </span>
             <p className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
-              {activeOrdersCount} Pending
+              {activeOrdersCount} Active
             </p>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-2">
-              <Clock className="w-3.5 h-3.5 animate-spin" /> In Preparation
+              <Clock className="w-3.5 h-3.5 animate-spin" /> In Preparation / Delivery
             </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -278,7 +399,7 @@ export default function AdminOverviewPage() {
               {totalCatalogDishes} Recipes
             </p>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary mt-2">
-              <UtensilsCrossed className="w-3.5 h-3.5" /> 4 Cuisines Available
+              <UtensilsCrossed className="w-3.5 h-3.5" /> 4 Cuisines in Stock
             </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
@@ -286,17 +407,17 @@ export default function AdminOverviewPage() {
           </div>
         </div>
 
-        {/* Total Revenue */}
+        {/* Net Fulfilled Revenue */}
         <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-              Total Sales Volume
+              Net Fulfilled Sales
             </span>
             <p className="font-serif text-2xl sm:text-3xl font-bold text-primary">
-              {formatPrice(totalRevenue)}
+              {formatPrice(netFulfilledRevenue)}
             </p>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gold-600 dark:text-gold-400 mt-2">
-              <TrendingUp className="w-3.5 h-3.5" /> Online &amp; Dine-In
+            <span className="text-[10px] text-muted-foreground block mt-1">
+              Gross pipeline: {formatPrice(grossActiveRevenue)}
             </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-gold-500/10 text-gold-600 dark:text-gold-400 flex items-center justify-center">
@@ -437,15 +558,29 @@ export default function AdminOverviewPage() {
         {/* Top Selling Dishes */}
         <div className="bg-card border border-border rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="font-serif text-xl font-bold text-foreground mb-1">
-              Top Selling Dishes
-            </h3>
-            <p className="text-xs text-muted-foreground mb-6">
-              Highest-grossing menu items in Biratnagar branch.
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <h3 className="font-serif text-xl font-bold text-foreground">
+                Top Selling Dishes
+              </h3>
+              {isLiveDishData ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  ● Live Data
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                  Sample Benchmark
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-4">
+              {isLiveDishData
+                ? `Rankings computed from ${filteredOrders.length} orders in selected time period.`
+                : 'No live order items recorded in this period yet. Showing baseline menu popularity for prep.'}
             </p>
 
             <div className="space-y-4">
-              {topDishes.map((dish, i) => (
+              {displayDishes.map((dish, i) => (
                 <div key={dish.name} className="flex items-center justify-between text-xs pb-3 border-b border-border/60 last:border-0 last:pb-0">
                   <div className="flex items-center gap-3">
                     <span className="w-6 h-6 rounded-lg bg-muted text-muted-foreground font-bold flex items-center justify-center text-[11px]">
@@ -454,7 +589,7 @@ export default function AdminOverviewPage() {
                     <div>
                       <h4 className="font-bold text-foreground line-clamp-1">{dish.name}</h4>
                       <p className="text-[10px] text-muted-foreground">
-                        {dish.sold} orders • {dish.category}
+                        {dish.sold} ordered • {dish.category}
                       </p>
                     </div>
                   </div>

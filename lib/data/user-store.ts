@@ -183,9 +183,8 @@ export async function registerNewUser(data: {
   phone?: string
   image?: string
 }): Promise<AppUser> {
-  const cleanEmail = data.email.trim().toLowerCase()
-  const role: Role = cleanEmail === 'admin@purplehaze.com' ? 'ADMIN' : 'CUSTOMER'
-  return createUserWithRole({ ...data, role })
+  // Public self-registration ALWAYS assigns CUSTOMER role
+  return createUserWithRole({ ...data, role: 'CUSTOMER' })
 }
 
 /**

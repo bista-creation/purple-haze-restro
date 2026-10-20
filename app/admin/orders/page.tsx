@@ -26,6 +26,7 @@ import { getWhatsAppOrderUrl, ADMIN_WHATSAPP_NUMBER } from '@/lib/whatsapp'
 
 export default function AdminOrdersPage() {
   const [soundAlerts, setSoundAlerts] = useState(true)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [orders, setOrders] = useState<any[]>([])
@@ -33,6 +34,25 @@ export default function AdminOrdersPage() {
   const [refreshing, setRefreshing] = useState(false)
   const knownOrderIds = useRef<Set<string>>(new Set())
   const isFirstLoad = useRef(true)
+
+  // Restore staff sound alert preference on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('admin_orders_sound')
+      if (saved !== null) {
+        setSoundAlerts(saved === 'true')
+      }
+    } catch {}
+  }, [])
+
+  const handleToggleSound = () => {
+    const next = !soundAlerts
+    setSoundAlerts(next)
+    try {
+      localStorage.setItem('admin_orders_sound', String(next))
+    } catch {}
+    toast.info(next ? 'Kitchen order audio chime enabled.' : 'Kitchen order audio chime muted.')
+  }
 
   // Web Audio chime generator
   const playChime = useCallback(() => {
@@ -62,8 +82,12 @@ export default function AdminOrdersPage() {
     if (manual) setRefreshing(true)
     try {
       const res = await fetch('/api/orders')
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status}`)
+      }
       const data = await res.json()
       if (data.success && Array.isArray(data.data)) {
+        setConnectionError(null)
         const rawOrders = data.data
 
         // Detect new incoming orders after initial load
@@ -138,9 +162,12 @@ export default function AdminOrdersPage() {
         })
 
         setOrders(normalized)
+      } else {
+        setConnectionError(data.error || 'Failed to parse orders response')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Could not fetch live orders:', err)
+      setConnectionError(err?.message || 'Connection lost to live queue. Retrying...')
     } finally {
       setLoading(false)
       if (manual) setRefreshing(false)
@@ -201,7 +228,7 @@ export default function AdminOrdersPage() {
             Live Orders Management
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Auto-refreshing every 6s • Active audio chime enabled
+            Auto-refreshing every 6s • Audio chime: <strong className={soundAlerts ? 'text-emerald-500 font-bold' : 'text-muted-foreground'}>{soundAlerts ? 'Active' : 'Muted'}</strong> (Preference saved)
           </p>
         </div>
 
@@ -213,33 +240,48 @@ export default function AdminOrdersPage() {
             disabled={refreshing}
             className="rounded-xl text-xs gap-1.5 border-border h-9"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-primary' : ''}`} />
             <span>Refresh</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setSoundAlerts(!soundAlerts)
-              toast.info(soundAlerts ? 'Sound alerts muted.' : 'Sound alerts enabled.')
-            }}
+            onClick={handleToggleSound}
             className="rounded-xl text-xs gap-1.5 border-border h-9"
           >
             {soundAlerts ? (
               <>
                 <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="hidden sm:inline">Chime</span> On
+                <span>Chime Active</span>
               </>
             ) : (
               <>
                 <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="hidden sm:inline">Chime</span> Muted
+                <span>Chime Muted</span>
               </>
             )}
           </Button>
         </div>
       </div>
+
+      {/* Connection Failure Alert Banner */}
+      {connectionError && (
+        <div className="p-3.5 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>Live connection issue: {connectionError} (Retrying every 6s)</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fetchOrders(true)}
+            className="h-7 text-[11px] border-destructive/40 hover:bg-destructive/10 rounded-lg shrink-0"
+          >
+            Retry Now
+          </Button>
+        </div>
+      )}
 
       {/* Filter Tabs & Service Type Selector */}
       <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">

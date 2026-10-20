@@ -39,6 +39,8 @@ function TrackOrderContent() {
   const [currentOrder, setCurrentOrder] = useState<any>(null)
   const [currentStatus, setCurrentStatus] = useState<TrackingStatus>('PREPARING')
   const [searched, setSearched] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [notFound, setNotFound] = useState(false)
   const [rating, setRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
@@ -76,72 +78,98 @@ function TrackOrderContent() {
     },
   ]
 
+  const performFetch = async (num: string, phone: string) => {
+    setLoading(true)
+    setNotFound(false)
+
+    try {
+      // 1. Check database via API first
+      const cleanNum = num.trim().toUpperCase()
+      const cleanPhone = phone.trim()
+      const queryUrl = `/api/orders?orderNumber=${encodeURIComponent(cleanNum)}${
+        cleanPhone ? `&phone=${encodeURIComponent(cleanPhone)}` : ''
+      }`
+
+      const res = await fetch(queryUrl)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.data) {
+          setCurrentOrder(data.data)
+          setCurrentStatus(data.data.status || 'PLACED')
+          setNotFound(false)
+          return
+        }
+      }
+
+      // 2. Fallback to localStorage (placed in this browser)
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(`order_${cleanNum}`)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          setCurrentOrder(parsed)
+          setCurrentStatus(parsed.status || 'PLACED')
+          setNotFound(false)
+          return
+        }
+      }
+
+      // 3. Not found anywhere
+      setCurrentOrder(null)
+      setNotFound(true)
+    } catch {
+      // Check localStorage on network error
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(`order_${num.trim().toUpperCase()}`)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          setCurrentOrder(parsed)
+          setCurrentStatus(parsed.status || 'PLACED')
+          setNotFound(false)
+          return
+        }
+      }
+      setCurrentOrder(null)
+      setNotFound(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setSearched(true)
-
     const num = orderNumberInput.trim().toUpperCase()
     if (!num) return
-
-    // Try finding in localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`order_${num}`)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        setCurrentOrder(parsed)
-        setCurrentStatus(parsed.status || 'PREPARING')
-        return
-      }
-    }
-
-    // Default mock order if not found
-    setCurrentOrder({
-      orderNumber: num,
-      createdAt: new Date().toISOString(),
-      customer: {
-        name: 'Guest Diner',
-        phone: phoneInput || '98520XXXXX',
-      },
-      orderType: 'DELIVERY',
-      deliveryZone: 'Biratnagar Core (Airport / Main Road)',
-      address: {
-        street: 'Airport Line, Ward 4',
-        area: 'Tintoliya Road',
-        city: 'Biratnagar',
-      },
-      items: [
-        {
-          dishName: 'Purple Haze Special Thakali Thali (Chicken)',
-          quantity: 1,
-          totalPrice: 550,
-        },
-        {
-          dishName: 'Steamed Chicken Momo (10 Pcs)',
-          quantity: 2,
-          totalPrice: 480,
-        },
-        {
-          dishName: 'Signature Purple Galaxy Mocktail',
-          quantity: 2,
-          totalPrice: 480,
-        },
-      ],
-      pricing: {
-        total: 1510,
-        deliveryFee: 50,
-      },
-      status: 'PREPARING',
-      estimatedMinutes: 25,
-    })
-    setCurrentStatus('PREPARING')
+    performFetch(num, phoneInput)
   }
 
   useEffect(() => {
     if (qOrderNumber) {
-      handleSearch()
+      performFetch(qOrderNumber, qPhone)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qOrderNumber])
+
+  // Periodic polling for active orders (every 12 seconds)
+  useEffect(() => {
+    if (!currentOrder || currentStatus === 'DELIVERED' || currentStatus === 'CANCELLED') return
+    const interval = setInterval(() => {
+      const num = currentOrder.orderNumber || currentOrder.id
+      if (num) {
+        fetch(`/api/orders?orderNumber=${encodeURIComponent(num)}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.success && d.data?.status && d.data.status !== currentStatus) {
+              setCurrentStatus(d.data.status)
+              setCurrentOrder((prev: any) => ({ ...prev, ...d.data }))
+              toast.info(`Order updated: ${d.data.status.replace(/_/g, ' ')}`)
+            }
+          })
+          .catch(() => {})
+      }
+    }, 12000)
+    return () => clearInterval(interval)
+  }, [currentOrder, currentStatus])
 
   const getStepIndex = (status: TrackingStatus) => {
     return steps.findIndex((s) => s.key === status)
@@ -338,25 +366,19 @@ function TrackOrderContent() {
                     </span>
                   </div>
 
-                  {/* Demo Simulation Trigger */}
-                  <div className="flex items-center justify-between text-xs pt-2">
-                    <button
-                      type="button"
-                      onClick={advanceStatusDemo}
-                      className="text-primary hover:underline font-semibold flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> Simulate Next Status Step (Demo)
-                    </button>
+                  {/* Live Status Refresh Info */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between text-xs pt-2 gap-2">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin" />
+                      Live connection active · Updates automatically as kitchen prepares order
+                    </span>
 
-                    {currentStepIndex === 0 && (
-                      <button
-                        type="button"
-                        onClick={handleCancelOrder}
-                        className="text-destructive hover:underline font-medium"
-                      >
-                        Cancel Order
-                      </button>
-                    )}
+                    <a
+                      href={`tel:${RESTAURANT_INFO.primaryPhone}`}
+                      className="text-primary hover:underline font-semibold flex items-center gap-1 text-[11px]"
+                    >
+                      <Phone className="w-3 h-3" /> Need Help? {RESTAURANT_INFO.primaryPhone}
+                    </a>
                   </div>
                 </div>
               )}
@@ -438,16 +460,34 @@ function TrackOrderContent() {
               </div>
             </div>
           </div>
+        ) : loading ? (
+          <div className="text-center py-16 bg-card border border-border rounded-3xl p-8 space-y-3">
+            <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto text-primary" />
+            <h3 className="font-serif text-lg font-bold text-foreground">
+              Connecting to Kitchen Dispatch...
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Retrieving live status for order #{orderNumberInput}...
+            </p>
+          </div>
         ) : (
-          searched && (
-            <div className="text-center py-16 bg-card border border-border rounded-3xl p-8">
-              <AlertTriangle className="w-12 h-12 text-gold-500 mx-auto mb-3" />
-              <h3 className="font-serif text-xl font-bold text-foreground mb-1">
+          (searched || notFound) && (
+            <div className="text-center py-16 bg-card border border-border rounded-3xl p-8 space-y-3">
+              <AlertTriangle className="w-12 h-12 text-gold-500 mx-auto" />
+              <h3 className="font-serif text-xl font-bold text-foreground">
                 Order Not Found
               </h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-6">
-                Please double check the order number. For assistance, contact our Biratnagar hotline at {RESTAURANT_INFO.primaryPhone}.
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                We could not locate an active order for &ldquo;{orderNumberInput}&rdquo;. Please verify the order number on your bill or WhatsApp receipt.
               </p>
+              <div className="pt-2">
+                <a
+                  href={`tel:${RESTAURANT_INFO.primaryPhone}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline bg-primary/10 px-4 py-2 rounded-xl"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Call Restaurant Hotline: {RESTAURANT_INFO.primaryPhone}
+                </a>
+              </div>
             </div>
           )
         )}

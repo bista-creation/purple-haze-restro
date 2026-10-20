@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { ReservationSchema } from '@/lib/validations'
 import { sendReservationConfirmationEmail } from '@/lib/email'
 
@@ -89,14 +90,56 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Staff or Admin privilege required.' },
+        { status: 403 }
+      )
+    }
+
     const reservations = await prisma.reservation.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
     })
     return NextResponse.json({ success: true, data: reservations })
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch reservations', data: [] },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Staff or Admin privilege required.' },
+        { status: 403 }
+      )
+    }
+
+    const body = await req.json()
+    const { id, status } = body
+
+    if (!id || !status) {
+      return NextResponse.json(
+        { success: false, error: 'Reservation ID and status are required.' },
+        { status: 400 }
+      )
+    }
+
+    const updated = await prisma.reservation.update({
+      where: { id },
+      data: { status },
+    })
+
+    return NextResponse.json({ success: true, data: updated })
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to update reservation.' },
       { status: 500 }
     )
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { sendNewsletterWelcomeEmail } from '@/lib/email'
 import fs from 'fs'
 import path from 'path'
@@ -122,6 +123,14 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Staff or Admin privilege required.' },
+        { status: 403 }
+      )
+    }
+
     const list = await prisma.newsletter.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,

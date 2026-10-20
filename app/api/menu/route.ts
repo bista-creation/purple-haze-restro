@@ -12,24 +12,16 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-async function checkAdminAuth(request: Request) {
+async function checkAdminAuth(request?: Request) {
   try {
     const session = await auth()
     const userRole = session?.user?.role
-    if (session?.user && (userRole === 'ADMIN' || userRole === 'STAFF' || session.user.email?.toLowerCase().includes('admin') || session.user.email?.toLowerCase().includes('staff'))) {
-      return { authorized: true, role: userRole || 'ADMIN' }
+    if (session?.user && (userRole === 'ADMIN' || userRole === 'STAFF')) {
+      return { authorized: true, role: userRole }
     }
   } catch {
     // Session check error
   }
-
-  // Check headers passed from authenticated admin client
-  const roleHeader = request.headers.get('x-admin-role')
-  const authHeader = request.headers.get('x-admin-auth')
-  if (roleHeader === 'ADMIN' || roleHeader === 'STAFF' || authHeader === 'true') {
-    return { authorized: true, role: (roleHeader as any) || 'ADMIN' }
-  }
-
   return { authorized: false, role: null }
 }
 

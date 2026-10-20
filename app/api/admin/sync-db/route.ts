@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { CATEGORIES_DATA, DISHES_DATA } from '@/lib/data/restaurant-data'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Administrator privilege required.' },
+        { status: 403 }
+      )
+    }
+
     const totalCategories = await prisma.category.count()
     const totalDishes = await prisma.dish.count()
     const totalOrders = await prisma.order.count()
@@ -25,6 +34,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Administrator privilege required.' },
+        { status: 403 }
+      )
+    }
     // 1. Sync Categories into Neon
     let catsCount = 0
     for (const cat of CATEGORIES_DATA) {

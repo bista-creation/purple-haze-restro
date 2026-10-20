@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { EventBookingSchema } from '@/lib/validations'
 import { sendEventBookingNotification } from '@/lib/email'
 
@@ -93,15 +94,66 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Staff or Admin privilege required.' },
+        { status: 403 }
+      )
+    }
+
     const bookings = await prisma.eventBooking.findMany({
       include: { venue: true },
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
     })
     return NextResponse.json({ success: true, data: bookings })
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch event bookings', data: [] },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Staff or Admin privilege required.' },
+        { status: 403 }
+      )
+    }
+
+    const body = await req.json()
+    const { id, status, adminNotes } = body
+
+    if (!id || !status) {
+      return NextResponse.json(
+        { success: false, error: 'Booking ID and status are required.' },
+        { status: 400 }
+      )
+    }
+
+    const updatedBy = session.user.name || session.user.email || 'Staff'
+    const timestamp = new Date().toISOString()
+    const noteEntry = adminNotes
+      ? `${adminNotes} [Updated to ${status} by ${updatedBy} at ${timestamp}]`
+      : `Status updated to ${status} by ${updatedBy} at ${timestamp}`
+
+    const updated = await prisma.eventBooking.update({
+      where: { id },
+      data: {
+        status,
+        adminNotes: noteEntry,
+      },
+    })
+
+    return NextResponse.json({ success: true, data: updated })
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to update event booking.' },
       { status: 500 }
     )
   }

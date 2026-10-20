@@ -79,63 +79,8 @@ export default function OrderConfirmationPage() {
             }
             setOrder(parsed)
           } else {
-            // Fallback demo order snapshot
-            setOrder({
-              orderNumber: orderId,
-              createdAt: new Date().toISOString(),
-              customer: {
-                name: 'Valued Guest',
-                phone: '98520XXXXX',
-                email: 'guest@purplehaze.com',
-              },
-              orderType: 'DELIVERY',
-              deliveryZone: 'Biratnagar Core (Airport / Main Road)',
-              address: {
-                street: 'Airport Line, Ward 4',
-                area: 'Near Domestic Airport',
-                city: 'Biratnagar',
-              },
-              items: [
-                {
-                  id: '1',
-                  dishName: 'Purple Haze Special Thakali Thali',
-                  quantity: 2,
-                  unitPrice: 550,
-                  totalPrice: 1100,
-                  variantName: 'Chicken Thali',
-                },
-                {
-                  id: '2',
-                  dishName: 'Steamed Chicken Momo (10 Pcs)',
-                  quantity: 1,
-                  unitPrice: 240,
-                  totalPrice: 240,
-                  variantName: 'Pan-Fried (Kothey)',
-                },
-                {
-                  id: '3',
-                  dishName: 'Signature Purple Haze Galaxy Mocktail',
-                  quantity: 2,
-                  unitPrice: 240,
-                  totalPrice: 480,
-                },
-              ],
-              pricing: {
-                subtotal: 1820,
-                discount: 182,
-                couponCode: 'PURPLE10',
-                deliveryFee: 50,
-                total: 1688,
-              },
-              payment: {
-                method: isSuccess ? (method?.toUpperCase() || 'ESEWA') : 'CASH_ON_DELIVERY',
-                status: isSuccess ? 'PAID' : 'PENDING',
-                amount: 1688,
-                transactionId: ref || undefined,
-              },
-              status: 'CONFIRMED',
-              estimatedTime: 35,
-            })
+            // Order not found in database or local device cache
+            setOrder(null)
           }
           setLoading(false)
         })
@@ -152,6 +97,30 @@ export default function OrderConfirmationPage() {
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-12">
           <p className="text-xs text-muted-foreground animate-pulse">Loading order invoice...</p>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center max-w-md mx-auto space-y-4">
+          <AlertCircle className="w-12 h-12 text-gold-500" />
+          <h2 className="font-serif text-2xl font-bold">Order Record Not Found</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            We could not find an active invoice for order #{orderId}. If you just placed this order, please check your SMS/WhatsApp confirmation or view your active orders.
+          </p>
+          <div className="pt-2 flex flex-wrap justify-center gap-3">
+            <Button asChild variant="outline" className="text-xs rounded-xl">
+              <Link href="/menu">Back to Menu</Link>
+            </Button>
+            <Button asChild className="text-xs rounded-xl bg-primary text-white">
+              <Link href={`/track-order?orderNumber=${encodeURIComponent(orderId)}`}>Track Order Status</Link>
+            </Button>
+          </div>
         </div>
         <Footer />
       </div>

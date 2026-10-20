@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { testEmailConnection, getFromEmail, getAdminEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   try {
+    const session = await auth().catch(() => null)
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Administrator privilege required to run email diagnostic tests.' },
+        { status: 403 }
+      )
+    }
     const url = new URL(req.url)
     const customEmail = url.searchParams.get('to') || undefined
 

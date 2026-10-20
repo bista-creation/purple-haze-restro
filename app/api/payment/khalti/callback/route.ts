@@ -46,13 +46,17 @@ export async function GET(req: Request) {
   }
 
   // Verify transaction status with Khalti lookup
+  const isSimulator = pidx.startsWith('k_sim_')
   const verification = await verifyKhaltiPayment(pidx)
 
-  if (!verification.success && statusParam !== 'Completed') {
-    console.error('[Khalti Callback]: Verification failed:', verification.error)
+  // Enforce strict cryptographic gateway verification for live/real transactions
+  const isApproved = isSimulator ? statusParam === 'Completed' : verification.success
+
+  if (!isApproved) {
+    console.error('[Khalti Callback]: Verification failed:', verification.error || 'Transaction not approved by gateway')
     return NextResponse.redirect(
       `${baseUrl}/checkout?error=khalti_failed&reason=${encodeURIComponent(
-        verification.error || 'Payment failed or cancelled'
+        verification.error || 'Payment was not verified by Khalti'
       )}`
     )
   }
