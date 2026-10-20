@@ -161,7 +161,7 @@ export async function sendNewsletterWelcomeEmail(subscriberEmail: string) {
       </ul>
 
       <div style="text-align: center; margin-top: 25px;">
-        <a href="https://purple-haze-restro.vercel.app/menu" class="cta-button">Explore Biratnagar Menu & Order Online →</a>
+        <a href="https://purplehaze-restro.vercel.app/menu" class="cta-button">Explore Biratnagar Menu & Order Online →</a>
       </div>
     `
   )
@@ -269,7 +269,7 @@ export async function sendReservationConfirmationEmail(params: {
       </p>
 
       <div style="text-align: center; margin-top: 25px;">
-        <a href="https://purple-haze-restro.vercel.app/menu" class="cta-button">Browse Menu in Advance →</a>
+        <a href="https://purplehaze-restro.vercel.app/menu" class="cta-button">Browse Menu in Advance →</a>
       </div>
     `
   )
@@ -471,7 +471,7 @@ export async function sendOrderPlacedEmail(params: {
       </table>
 
       <div style="text-align: center; margin-top: 25px;">
-        <a href="https://purple-haze-restro.vercel.app/track-order?orderNumber=${orderNumber}" class="cta-button">Track Live Kitchen Status →</a>
+        <a href="https://purplehaze-restro.vercel.app/track-order?orderNumber=${orderNumber}" class="cta-button">Track Live Kitchen Status →</a>
       </div>
     `
   )

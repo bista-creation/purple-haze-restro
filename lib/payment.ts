@@ -17,7 +17,11 @@ export function getAppBaseUrl(req?: Request): string {
     return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
   }
 
-  return 'https://purple-haze-restro.vercel.app'
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/$/, '')}`
+  }
+
+  return 'https://purplehaze-restro.vercel.app'
 }
 
 /* =========================================================================

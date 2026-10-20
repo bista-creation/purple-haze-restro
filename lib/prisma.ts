@@ -11,18 +11,22 @@ function getDatabaseUrl(): string | undefined {
 
   if (!url) return undefined
 
-  // Strip channel_binding (unsupported in Prisma) and normalize pooler to direct connection if needed
+  // Strip channel_binding (unsupported in Prisma)
   url = url
-    .replace('-pooler.', '.')
     .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
     .replace(/[?&]$/, '')
+
+  // Ensure connection timeout allows Neon serverless compute to wake from sleep
+  if (!url.includes('connect_timeout')) {
+    url += (url.includes('?') ? '&' : '?') + 'connect_timeout=30'
+  }
 
   return url
 }
 
 const dbUrl = getDatabaseUrl()
 
-if (dbUrl && !process.env.DATABASE_URL) {
+if (dbUrl) {
   process.env.DATABASE_URL = dbUrl
 }
 
